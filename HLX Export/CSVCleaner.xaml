@@ -1,0 +1,27 @@
+﻿<Window x:Class="HLXExport.CSVCleaner"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:HLXExport"
+        mc:Ignorable="d"
+        Title="CSVCleaner" Height="197" Width="360" Background="#FFDEDDDD">
+    <Grid>
+        <TextBox x:Name="LoadPath" HorizontalAlignment="Left" Margin="14,10,0,0" TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="226" Height="17"/>
+        <Button x:Name="LoadFileButton" Content="Load" HorizontalAlignment="Left" Margin="253,9,0,0" VerticalAlignment="Top" RenderTransformOrigin="0.453,-0.079" Width="81" Height="19" Click="LoadFromFile">
+            <Button.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform/>
+                    <SkewTransform AngleY="-0.324"/>
+                    <RotateTransform/>
+                    <TranslateTransform Y="-0.146"/>
+                </TransformGroup>
+            </Button.RenderTransform>
+        </Button>
+        <Label Content="Cleaning Routines" HorizontalAlignment="Left" Margin="10,32,0,0" VerticalAlignment="Top"/>
+        <CheckBox Content="Split Coords" HorizontalAlignment="Left" Margin="14,58,0,0" VerticalAlignment="Top" />
+        <CheckBox Content="Remove Quotes" HorizontalAlignment="Left" Margin="107,58,0,0" VerticalAlignment="Top" />
+        <CheckBox Content="Remove Quotes" HorizontalAlignment="Left" Margin="216,58,0,0" VerticalAlignment="Top" />
+
+    </Grid>
+</Window>

@@ -1,0 +1,19 @@
+﻿<Window x:Class="HLXExport.ProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:HLXExport"
+        mc:Ignorable="d"
+        Title="ProgressWindow" Height="145" Width="354" Icon="static/info.png" SizeToContent="WidthAndHeight" ResizeMode="NoResize">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="35*"/>
+            <ColumnDefinition Width="24*"/>
+        </Grid.ColumnDefinitions>
+        <ProgressBar x:Name="ProgressBar" Margin="22,65,22,27" Grid.ColumnSpan="2" Height="37"/>
+        <Label x:Name="JobDescriptionText" Content="Label" HorizontalAlignment="Left" Margin="60,21,0,0" VerticalAlignment="Top" FontSize="16" Width="261" Grid.ColumnSpan="2"/>
+        <Image HorizontalAlignment="Left" Height="33" Margin="22,21,0,0" VerticalAlignment="Top" Width="33" Source="static/info.png"/>
+
+    </Grid>
+</Window>
