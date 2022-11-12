@@ -1,18 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
-using System.Formats.Asn1;
 using System.Globalization;
 using CsvHelper; 
 using System.Diagnostics;
 using System.IO.Compression;
-using System.Threading;
 using System.Data;
 using System.ComponentModel;
-using System.Windows.Threading;
 
 namespace HLXExport
 {
