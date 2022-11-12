@@ -6,6 +6,8 @@ using Ookii.Dialogs.Wpf;
 using System.Diagnostics;
 using System.Windows.Data;
 using System;
+using static HLXExport.Utilities;
+using System.IO;
 
 namespace HLXExport
 {
@@ -57,6 +59,13 @@ namespace HLXExport
                 }
 
                 Debug.Log("MainWindow: Loaded Data");
+
+                ZippedFileCollection files = Utilities.OpenZipFile(openFileDialog.FileName, "./temp/");
+                Debug.Log("MainWindow: " + files.GetFiles().Count);
+
+                foreach (FileStream file in files.Filter(".txt")) {
+                    Debug.Log(file.Name);
+                }
 
             } else {
                 Debug.Warn("MainWindow: User selected a bad file. Not correct format");
