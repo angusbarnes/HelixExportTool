@@ -8,16 +8,23 @@ using System.Windows.Data;
 using System;
 using static HLXExport.Utilities;
 using System.IO;
+using LazyCSV;
 
 namespace HLXExport
 {
     // These values should all be constants and should be checked before every release version of the software
     public static class ApplicationConstants
     {
-        public const string SOFTWARE_VERSION = "v0.0.3";
+        public const string SOFTWARE_VERSION = "v0.1.1";
         public const string SOFTWARE_NAME = "HLX Export";
         public const string FORMATTED_TITLE = SOFTWARE_NAME + " " + SOFTWARE_VERSION;
         public const string SOFTWARE_SUPPORT_LINK = "https://www.google.com.au/";
+#if DEBUG
+        public const bool DEBUG_MODE_ENABLED = true;
+#endif
+#if !DEBUG 
+        public const bool DEBUG_MODE_ENABLED = true;
+#endif
     }
 
     public partial class MainWindow : Window
@@ -29,6 +36,10 @@ namespace HLXExport
         public MainWindow() {
             InitializeComponent();
             Title = ApplicationConstants.FORMATTED_TITLE;
+            Trace.Listeners.Add(mainWindowListener);
+
+            if (ApplicationConstants.DEBUG_MODE_ENABLED)
+                consoleWindow.Show();
         }
 
         private void Button_LoadFromSource(object sender, RoutedEventArgs e)
@@ -48,31 +59,21 @@ namespace HLXExport
 
             if(processor.LoadData(openFileDialog.FileName)) {
 
-                Debug.Log("MainWindow: Reading: " + openFileDialog.FileName);
-                processor.ReadData(RemovePrevious: true);
+                ZippedFileCollection files = Utilities.OpenZipFile(openFileDialog.FileName, ".\\temp\\");
 
-                ListDisplay.Items.Clear();           
+                foreach (string filename in files.GetFiles(".csv")) {
+                    ListDisplay.Items.Add(filename);
 
-                foreach (string file in processor.FilesLoaded)
-                {
-                    ListDisplay.Items.Add(file);
-                }
-
-                Debug.Log("MainWindow: Loaded Data");
-
-                ZippedFileCollection files = Utilities.OpenZipFile(openFileDialog.FileName, "./temp/");
-                Debug.Log("MainWindow: " + files.GetFiles().Count);
-
-                foreach (FileStream file in files.Filter(".txt")) {
-                    Debug.Log(file.Name);
+                    using (CSVReader reader = new CSVReader(filename)) {
+                        Debug.Log($"MainWindow: Found CSV Headers In File {filename}: " + reader.GetFieldNames.FlattenToString());
+                    }
                 }
 
             } else {
                 Debug.Warn("MainWindow: User selected a bad file. Not correct format");
                 MessageBox.Show("The File select either does not exist or is not a ZIP file", "Load File Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-
-            Trace.Listeners.Add(mainWindowListener);
+            
         }
 
         private void Button_SaveToDestination(object sender, RoutedEventArgs e)
@@ -94,7 +95,11 @@ namespace HLXExport
             } else if (e.AddedItems.Count == 1)  {
                 string? file = e.AddedItems[0].ToString();
                 Trace.WriteLine($"MainWindow: Single File Selection Made: {file}");
-                processor.SelectFile(file);               
+                processor.SelectFile(file);
+
+                using (CSVReader reader = new CSVReader(file)) {
+                    Debug.Warn("MainWindow: Selected Headers: " + reader.GetFieldNames.FlattenToString());
+                }
             }
         }
 
@@ -120,8 +125,6 @@ namespace HLXExport
 
                 areas.Add(value);
             }
-
-
 
             Trace.WriteLine("MainWindow: Attempting To Process File");
         }

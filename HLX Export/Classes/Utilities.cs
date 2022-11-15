@@ -44,6 +44,11 @@ namespace HLXExport
                 return files;
             }
 
+            public List<string> GetFiles(string extension)
+            {
+                return files.Where(f => f.EndsWith(extension)).ToList();
+            }
+
             public void RegisterFile(string filePath)
             {
                 files.Add(Path.Combine(CollectionLocation,filePath));
