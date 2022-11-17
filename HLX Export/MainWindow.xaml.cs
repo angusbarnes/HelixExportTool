@@ -9,6 +9,10 @@ using System;
 using static HLXExport.Utilities;
 using System.IO;
 using LazyCSV;
+using System.Linq;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Text.Json.Serialization;
 
 namespace HLXExport
 {
@@ -18,7 +22,8 @@ namespace HLXExport
         public const string SOFTWARE_VERSION = "v0.1.1";
         public const string SOFTWARE_NAME = "HLX Export";
         public const string FORMATTED_TITLE = SOFTWARE_NAME + " " + SOFTWARE_VERSION;
-        public const string SOFTWARE_SUPPORT_LINK = "https://www.google.com.au/";
+        public const string SOFTWARE_SUPPORT_LINK = "https://github.com/angusbarnes/HelixExportTool/issues";
+        public const string TEMP_DATA_PATH = ".\\temp\\";
 #if DEBUG
         public const bool DEBUG_MODE_ENABLED = true;
 #endif
@@ -29,17 +34,34 @@ namespace HLXExport
 
     public partial class MainWindow : Window
     {
-        private readonly DataProcessor processor = new();
         private ConsoleWindow consoleWindow = new();
         private readonly MainWindowListener mainWindowListener = new();
+
+        private ZippedFileCollection _zip;
+
+        private string SELECTED_FILE;
+
+        private ObservableCollection<HeaderData> headerData;
         
+        public struct HeaderData {
+            public string SourceName { get; set; }
+            public bool Include { get; set; }
+
+        }
+
         public MainWindow() {
             InitializeComponent();
             Title = ApplicationConstants.FORMATTED_TITLE;
             Trace.Listeners.Add(mainWindowListener);
 
+            consoleWindow.WindowStartupLocation = WindowStartupLocation.Manual;
+
             if (ApplicationConstants.DEBUG_MODE_ENABLED)
                 consoleWindow.Show();
+
+            if (Directory.Exists(ApplicationConstants.TEMP_DATA_PATH) == false)
+                Directory.CreateDirectory(ApplicationConstants.TEMP_DATA_PATH);
+
         }
 
         private void Button_LoadFromSource(object sender, RoutedEventArgs e)
@@ -57,15 +79,20 @@ namespace HLXExport
                 return;
             }
 
-            if(processor.LoadData(openFileDialog.FileName)) {
+            if(File.Exists(openFileDialog.FileName)) {
 
-                ZippedFileCollection files = Utilities.OpenZipFile(openFileDialog.FileName, ".\\temp\\");
+                if (_zip != null)
+                    _zip.DestroyCollection();
 
-                foreach (string filename in files.GetFiles(".csv")) {
-                    ListDisplay.Items.Add(filename);
+                _zip = ZippedFileCollection.Open(openFileDialog.FileName, ApplicationConstants.TEMP_DATA_PATH);
 
-                    using (CSVReader reader = new CSVReader(filename)) {
-                        Debug.Log($"MainWindow: Found CSV Headers In File {filename}: " + reader.GetFieldNames.FlattenToString());
+                foreach (string filename in _zip.GetFiles(".csv")) {
+                    ListDisplay.Items.Add(filename.Split('\\').Last());
+                    Debug.Log("Found File in cluster: " + filename);
+
+                    List<string> potentialFiles = new List<string>();
+                    if (filename.Contains("header", StringComparison.OrdinalIgnoreCase) || filename.Contains("collar", StringComparison.OrdinalIgnoreCase)) {
+                        potentialFiles.Add(filename);
                     }
                 }
 
@@ -85,7 +112,10 @@ namespace HLXExport
 
         private void UI_CollarFileSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            
+            headerData = new ObservableCollection<HeaderData>();
+            MainGrid.DataContext = headerData;
+            ProjectAreaList.Items.Clear();
+
             if (e.AddedItems.Count > 1) {
                 Trace.Write("MainWindow: Multiple Objects were provided: ");
                 foreach (string file in e.AddedItems) {
@@ -95,38 +125,44 @@ namespace HLXExport
             } else if (e.AddedItems.Count == 1)  {
                 string? file = e.AddedItems[0].ToString();
                 Trace.WriteLine($"MainWindow: Single File Selection Made: {file}");
-                processor.SelectFile(file);
+                SELECTED_FILE = _zip.GetFilePath(file);
 
-                using (CSVReader reader = new CSVReader(file)) {
-                    Debug.Warn("MainWindow: Selected Headers: " + reader.GetFieldNames.FlattenToString());
-                }
-            }
-        }
+                using CSVReader reader = new CSVReader(SELECTED_FILE);
+                
+                string[] fields = reader.FieldNames;
+                Debug.Notify("MainWindow: Selected Headers: " + fields.FlattenToString());
 
-        private void Button_AnalyseCollar(object sender, RoutedEventArgs e) {
-            if (processor.GetSelectedFile() == null) {
-                return;
-            }
-
-            List<string> areas = new();
-
-            foreach (string value in processor.GetFieldValuesFromSelectedFile("ProjectArea")) {
-
-                if (areas.Contains(value)) {
-                    continue;
+                foreach (string field in fields) {
+                    headerData.Add(new HeaderData() {
+                        SourceName = field,
+                        Include = false
+                    });
                 }
                 
-                CheckBox checkBox = new() {
-                    Content = value
-                };
 
-                //checkBox.Checked += UpdateHoleSelectionList;
-                ProjectAreaList.Items.Add(checkBox);
+                List<string> areas = new();
 
-                areas.Add(value);
+                reader.Reset();
+
+                Debug.Status("Collar ANALYSE ON");
+
+                foreach (string value in reader.GetField("\"ProjectArea\"")) {
+                    if (areas.Contains(value)) {
+                        continue;
+                    }
+
+                    CheckBox checkBox = new() {
+                        Content = value.Trim('"')
+                    };
+
+                    //checkBox.Checked += UpdateHoleSelectionList;
+                    ProjectAreaList.Items.Add(checkBox);
+
+                    areas.Add(value);
+                }
+
+                Trace.WriteLine("MainWindow: Attempting To Process File");
             }
-
-            Trace.WriteLine("MainWindow: Attempting To Process File");
         }
 
         private void Button_ShowCSVTools(object sender, RoutedEventArgs e)
@@ -143,13 +179,18 @@ namespace HLXExport
             }
             
             consoleWindow.Show();
-            Debug.Log("MainWindow: Set Console Display ON");
+            Debug.Status("MainWindow: Set Console Display ON");
         }
 
         // I think this method should work for default browsers on Windows
         private void Button_ReportIssue(object sender, RoutedEventArgs e)
         {
             Process.Start("explorer", ApplicationConstants.SOFTWARE_SUPPORT_LINK);
+        }
+
+        private void Button_ClearDataCache(object sender, RoutedEventArgs e) {
+            Directory.Delete(ApplicationConstants.TEMP_DATA_PATH, true);
+            Directory.CreateDirectory(ApplicationConstants.TEMP_DATA_PATH);
         }
 
         // Simple Trace Listener
@@ -169,6 +210,8 @@ namespace HLXExport
 
         protected override void OnClosed(EventArgs e)
         {
+            if (_zip != null)
+                _zip.DestroyCollection();
             base.OnClosed(e);
             consoleWindow.Close();
         }

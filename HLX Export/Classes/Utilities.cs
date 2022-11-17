@@ -49,6 +49,10 @@ namespace HLXExport
                 return files.Where(f => f.EndsWith(extension)).ToList();
             }
 
+            public void DestroyCollection() {
+                Directory.Delete(CollectionLocation, true);
+            }
+
             public void RegisterFile(string filePath)
             {
                 files.Add(Path.Combine(CollectionLocation,filePath));
@@ -62,29 +66,31 @@ namespace HLXExport
                     }
                 }
             }
-        }
 
-        public static ZippedFileCollection OpenZipFile(string filename, string destinationPath)
-        {
-            ZippedFileCollection collection = new ZippedFileCollection(destinationPath);
-            
-            using StreamReader sr = new (filename);
-            using (ZipArchive zip = new (sr.BaseStream)) {
+            public string GetFilePath(string filename) {
+                return Path.Combine(CollectionLocation, filename);
+            }
+            public static ZippedFileCollection Open(string filename, string destinationPath) {
+                ZippedFileCollection collection = new ZippedFileCollection(destinationPath);
 
-                zip.ExtractToDirectory(collection.CollectionLocation);
+                using StreamReader sr = new(filename);
+                using (ZipArchive zip = new(sr.BaseStream)) {
 
-                foreach (ZipArchiveEntry entry in zip.Entries) {
+                    zip.ExtractToDirectory(collection.CollectionLocation);
 
-                    if (entry.FullName.EndsWith('/'))
-                        continue;
+                    foreach (ZipArchiveEntry entry in zip.Entries) {
 
-                    Debug.Log("OpenZipFile: found: " + entry.FullName);
-                    collection.RegisterFile(entry.FullName);
+                        if (entry.FullName.EndsWith('/'))
+                            continue;
+
+                        Debug.Log("OpenZipFile: found: " + entry.FullName);
+                        collection.RegisterFile(entry.FullName);
+                    }
+
                 }
 
+                return collection;
             }
-
-            return collection;
         }
     }
 }

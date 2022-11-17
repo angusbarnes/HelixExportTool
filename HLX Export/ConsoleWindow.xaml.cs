@@ -19,6 +19,7 @@ namespace HLXExport
     {
         public ConsoleLogLevel LogLevel;
         public string Message;
+        public string ColorCode;
     }
 
     public static class Debug
@@ -44,10 +45,28 @@ namespace HLXExport
             LogEvent?.Invoke(consoleLogData);
         }
 
-        public static void Error(string message)
+        public static void Status(string message)
         {
             ConsoleLogData consoleLogData = new()
             {
+                Message = "System Status: " + message,
+                LogLevel = ConsoleLogLevel.WARN,
+                ColorCode = "#34eb34"
+            };
+            LogEvent?.Invoke(consoleLogData);
+        }
+
+        public static void Notify(string message) {
+            ConsoleLogData consoleLogData = new() {
+                Message = "INFO: " + message,
+                LogLevel = ConsoleLogLevel.WARN,
+                ColorCode = "#faf219"
+            };
+            LogEvent?.Invoke(consoleLogData);
+        }
+
+        public static void Error(string message) {
+            ConsoleLogData consoleLogData = new() {
                 Message = "ERROR: " + message,
                 LogLevel = ConsoleLogLevel.ERR
             };
@@ -65,6 +84,9 @@ namespace HLXExport
         {
             InitializeComponent();
 
+            this.Left = SystemParameters.PrimaryScreenWidth - this.Width;
+            this.Top = 0;
+
             if (_instance != null)
                 Trace.TraceError("Some shit got fucked up second instance of console logger created");
 
@@ -76,20 +98,26 @@ namespace HLXExport
         protected void HandleConsoleEvent(ConsoleLogData data)
         {
             Run line = new Run(data.Message + '\n');
-            if (data.LogLevel == ConsoleLogLevel.ERR)
-            {
-                line.Foreground = Brushes.Red;
-            }
 
-            if (data.LogLevel == ConsoleLogLevel.WARN)
-            {
-                line.Foreground = Brushes.Orange;
+            if (data.ColorCode == null) {
+                switch (data.LogLevel) {
+                    case ConsoleLogLevel.WARN:
+                        line.Foreground = Brushes.Orange;
+                        break;
+                    case ConsoleLogLevel.ERR:
+                        line.Foreground = Brushes.Red;
+                        break;
+                    case ConsoleLogLevel.INFO:
+                        line.Foreground = Brushes.WhiteSmoke;
+                        break;
+                    default:
+                        throw new NotImplementedException("You forgot a usecase dumbass");
+                }
+            } else {
+                // TODO: This is fucking horrific and needs fixing asap
+                line.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(data.ColorCode));
             }
-
-            if (data.LogLevel == ConsoleLogLevel.INFO)
-            {
-                line.Foreground = Brushes.WhiteSmoke;
-            }
+                
 
             AppendElement(line);
         }

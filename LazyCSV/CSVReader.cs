@@ -32,7 +32,7 @@ namespace LazyCSV
             }
         }
 
-        public string[] GetFieldNames { get { return _columnHeaders.Keys.ToArray(); } }
+        public string[] FieldNames { get { return _columnHeaders.Keys.ToArray(); } }
 
         public CSVRow ReadRow()
         {
@@ -45,6 +45,20 @@ namespace LazyCSV
             return new CSVRow(row.Split(','), _columnHeaders);
         }
 
+        public string[] GetField(string fieldname) {
+
+            List<string> values = new List<string>();
+            while (IsEOF == false) {
+                values.Add(ReadRow().GetField(fieldname));
+            }
+
+            return values.ToArray();
+        }
+
+        public void Reset() {
+            _stream.Position = 0;
+            _reader.ReadLine();
+        }
         public bool IsEOF { get { return _stream.Position == _stream.Length; } }
 
         public void Dispose()
@@ -73,7 +87,7 @@ namespace LazyCSV
 
         public int Length {  get { return _row.Length; } }
 
-        public string GetValue(string fieldname)
+        public string GetField(string fieldname)
         {
             if (_fieldnames.ContainsKey(fieldname) == false)
                 throw new System.Exception("CSV does not contain the field requested: " + fieldname);
