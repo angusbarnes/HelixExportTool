@@ -7,8 +7,8 @@
         mc:Ignorable="d"
         Title="Collar File Selection" Height="286" Width="474">
     <Grid>
-        <TextBlock HorizontalAlignment="Center" Margin="0,20,0,0" TextWrapping="Wrap" Text="Found x possible collar files. Please select one from the list below or manually locate one" Width="434" Height="69" VerticalAlignment="Top" FontSize="16"/>
-        <ListBox x:Name="FileOptions" d:ItemsSource="{d:SampleData ItemCount=5}" Margin="0,72,0,0" Height="131" VerticalAlignment="Top" HorizontalAlignment="Center" Width="434"/>
+        <TextBlock x:Name="MessageText" HorizontalAlignment="Center" Margin="0,20,0,0" TextWrapping="Wrap" Text="Found x possible collar files. Please select one from the list below or manually locate one" Width="434" Height="69" VerticalAlignment="Top" FontSize="16"/>
+        <ListBox x:Name="FileOptions" d:ItemsSource="{d:SampleData ItemCount=5}" Margin="0,72,0,0" Height="131" VerticalAlignment="Top" HorizontalAlignment="Center" Width="434" SelectionChanged="FileOptions_SelectionChanged"/>
         <Button Content="Select" HorizontalAlignment="Left" Margin="122,220,0,0" VerticalAlignment="Top" Width="66" Click="Button_Select"/>
         <Label Content="or" HorizontalAlignment="Left" Height="30" Margin="193,217,0,0" VerticalAlignment="Top" Width="25"/>
         <Button Content="Locate Manually" HorizontalAlignment="Left" Margin="223,222,0,0" VerticalAlignment="Top" Width="96" Click="Button_Locate"/>

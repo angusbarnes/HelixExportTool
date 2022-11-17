@@ -9,6 +9,7 @@
     <Grid>
         <ScrollViewer x:Name="ScrollContainer">
             <TextBlock x:Name="ConsoleTextBuffer" TextWrapping="Wrap" Background="#FF353535" Margin="10,11,10,11" Padding="5,2,0,0" FontFamily="Consolas" Foreground="#FFC1C1C1">
+            
             </TextBlock>
 
         </ScrollViewer>

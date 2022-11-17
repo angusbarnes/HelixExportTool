@@ -1,17 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Forms;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 
 namespace HLXExport {
     /// <summary>
@@ -22,29 +12,43 @@ namespace HLXExport {
             InitializeComponent();
         }
 
+        public CollarSelectionResult SelectionOutcome;
         public CollarFileSelection(List<string> files) {
             InitializeComponent();
 
+            MessageText.Text = $"Found {files.Count} potential header files. Please select one from the list or manually locate it.";
+
+            FileOptions.SelectionMode = SelectionMode.Single;
+
             foreach (string file in files) {
-                FileOptions.Items.Add(file);
+                FileOptions.Items.Add(file.Split('\\').Last());
             }
         }
 
-        public string SelectedFile;
+        public string? SelectedFile;
 
         private void Button_Locate(object sender, RoutedEventArgs e) {
-            OpenFileDialog openFileDialog = new();
-
-            if(openFileDialog.ShowDialog() == true) {
-
-            }
+            SelectionOutcome = CollarSelectionResult.ManualSelectionRequested;
+            DialogResult = true;
+            this.Close();
         }
 
         private void Button_Select(object sender, RoutedEventArgs e) {
             if (string.IsNullOrEmpty(SelectedFile))
                 return;
 
-            Close();
+
+            SelectionOutcome = CollarSelectionResult.SelectionMade;
+            DialogResult = true;
+            this.Close();
+        }
+
+        private void FileOptions_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            SelectedFile = e.AddedItems[0].ToString();
+            Debug.Log("CollarFileSelection:" + SelectedFile);
         }
     }
+
+    public enum CollarSelectionResult { SelectionMade, ManualSelectionRequested}
 }
