@@ -45,6 +45,9 @@ namespace LazyCSV
             return new CSVRow(row.Split(','), _columnHeaders);
         }
 
+        public int CurrentReadPosition { get { return (int) _stream.Position; } }
+        public int FileStreamLength { get { return (int) _stream.Length; } }
+        public double ReadPercentage {  get { return _stream.Position / _stream.Length; } }
         public string[] GetField(string fieldname) {
 
             List<string> values = new List<string>();
@@ -53,6 +56,12 @@ namespace LazyCSV
             }
 
             return values.ToArray();
+        }
+
+        public IEnumerable<CSVRow> Read() {
+            if (!IsEOF) {
+                yield return ReadRow();
+            }
         }
 
         public void Reset() {
@@ -108,6 +117,10 @@ namespace LazyCSV
         IEnumerator IEnumerable.GetEnumerator()
         {
             return _row.GetEnumerator();
+        }
+
+        public override string ToString() {
+            return _row.FlattenToString();
         }
 
         public string this[int index] {

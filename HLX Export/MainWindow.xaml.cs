@@ -10,13 +10,15 @@ using System.IO;
 using LazyCSV;
 using System.Linq;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Security.Cryptography.X509Certificates;
 
 namespace HLXExport
 {
     // These values should all be constants and should be checked before every release version of the software
     public static class ApplicationConstants
     {
-        public const string SOFTWARE_VERSION = "v0.1.1";
+        public const string SOFTWARE_VERSION = "v0.1.1a";
         public const string SOFTWARE_NAME = "HLX Export";
         public const string FORMATTED_TITLE = SOFTWARE_NAME + " " + SOFTWARE_VERSION;
         public const string SOFTWARE_SUPPORT_LINK = "https://github.com/angusbarnes/HelixExportTool/issues";
@@ -40,9 +42,14 @@ namespace HLXExport
 
         private ObservableCollection<HeaderData> headerData;
         
-        public struct HeaderData {
+        public class HeaderData : INotifyPropertyChanged {
             public string SourceName { get; set; }
             public bool Include { get; set; }
+
+            public string NameMapping { get; set; }
+
+            public event PropertyChangedEventHandler? PropertyChanged;
+
         }
 
         public MainWindow() {
@@ -102,7 +109,7 @@ namespace HLXExport
                         OpenFileDialog otherFileDialog = new();
                         otherFileDialog.Multiselect = false;
                         otherFileDialog.InitialDirectory = Path.Join(Directory.GetCurrentDirectory(), zip.CollectionLocation.Trim('.'));
-                        Debug.Warn(Path.Join(Directory.GetCurrentDirectory(), zip.CollectionLocation));
+                        Debug.Status("Using manual Selection Fallback @ " + Path.Join(Directory.GetCurrentDirectory(), zip.CollectionLocation));
 
                         if (otherFileDialog.ShowDialog() == true) {
                             SELECTED_FILE = otherFileDialog.FileName;
@@ -122,9 +129,8 @@ namespace HLXExport
                     Debug.Notify("MainWindow: Selected Headers: " + fields.FlattenToString());
 
                     foreach (string field in fields) {
-                        headerData.Add(new HeaderData()
-                        {
-                            SourceName = field,
+                        headerData.Add(new HeaderData() {
+                            SourceName = field.Trim('"'),
                             Include = false
                         });
                     }
@@ -148,7 +154,7 @@ namespace HLXExport
                             Content = value.Trim('"')
                         };
 
-                        //checkBox.Checked += UpdateHoleSelectionList;
+                        checkBox.Checked += UpdateHoleSelectionList;
                         ProjectAreaList.Items.Add(checkBox);
 
                         areas.Add(value);
@@ -163,11 +169,54 @@ namespace HLXExport
             }
         }
 
+        private List<string> SelectedProjects = new();
+        private void UpdateHoleSelectionList(object sender, RoutedEventArgs e) {
+            SelectedProjects.Clear();
+            foreach (CheckBox item in ProjectAreaList.Items) {
+                if ((bool)item.IsChecked)
+                    SelectedProjects.Add(item.Content.ToString());
+            }
+            Debug.Status("Selected Projects Updated: " + SelectedProjects.FlattenToString());
+        }
+
         private void Button_SaveToDestination(object sender, RoutedEventArgs e)
         {
             VistaFolderBrowserDialog dialog = new();
-            if (dialog.ShowDialog() == true)
+            if (dialog.ShowDialog() == true) {
                 DataDestinationLocationPath.Text = dialog.SelectedPath;
+                Debug.Log(" Selected an export path");
+
+                string exportLocation = dialog.SelectedPath;
+
+                List<string> includedFields = new List<string>();
+                foreach (HeaderData row in headerData) {
+                    if (row.Include)
+                        includedFields.Add(row.SourceName);
+                }
+
+                DataProcessor.DoWorkWithModal(progress => {
+
+                    using StreamWriter writer = new StreamWriter(exportLocation + "\\TEST_EXPORT_CollarFile.csv");
+                    using CSVReader reader = new CSVReader(SELECTED_FILE);
+                    
+                    writer.WriteLine(includedFields.FlattenToString());
+                    while (reader.IsEOF == false) {
+                        CSVRow row = reader.ReadRow();
+
+                        string[] values = new string[includedFields.Count];
+                        for (int i = 0; i < values.Length; i++) {
+                            values[i] = row.GetField('"' + includedFields[i] + '"');
+                        }
+                        if (SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"'))) {
+                            writer.WriteLine(values.FlattenToString());
+                        }
+
+                        progress.Report(reader.ReadPercentage * 100d);
+                    }
+                });
+
+            }
+
         }
 
         private void Button_ShowCSVTools(object sender, RoutedEventArgs e)
