@@ -13,6 +13,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.Json;
 using Microsoft.VisualBasic.ApplicationServices;
+using System.Windows.Media.Animation;
 
 namespace HLXExport
 {
@@ -51,6 +52,9 @@ namespace HLXExport
 
             public string NameMapping { get; set; }
 
+            public string DesiredUnit { get; set; }
+            public bool HasUnits { get { return SourceName.Contains("ppm") || SourceName.Contains('%'); } }
+
             public event PropertyChangedEventHandler? PropertyChanged;
 
         }
@@ -86,7 +90,7 @@ namespace HLXExport
 
         private void PopulateTable(IEnumerable<CSVTableHeaderData> tableData)
         {
-            Debug.Log("MainWindow: Attempting To Populate DataGrid");
+            Debug.Status("MainWindow: Attempting To Populate DataGrid");
             ObservableCollection<CSVTableHeaderData> list = new ObservableCollection<CSVTableHeaderData>();
             tableData.ToList().ForEach(list.Add);
             headerInclusionGridData = list;
@@ -98,13 +102,14 @@ namespace HLXExport
                 return;
 
             if(headerInclusionGridData != null)
-                SaveDataTable(SELECTED_FILE, headerInclusionGridData);
+                SaveDataTable(SELECTED_FILE.Split('/','\\').Last(), headerInclusionGridData);
 
             SELECTED_FILE = zip.GetFilePath(e.AddedItems[0].ToString());
 
-            if (fileSpecificExportSettings.ContainsKey(zip.GetFilePath(e.AddedItems[0].ToString())))
+            if (fileSpecificExportSettings.ContainsKey(e.AddedItems[0].ToString()))
             {
-                PopulateTable(fileSpecificExportSettings[zip.GetFilePath(e.AddedItems[0].ToString())]);
+                Debug.Status("MainWindow: Found File Specific Settings for file: " + e.AddedItems[0].ToString());
+                PopulateTable(fileSpecificExportSettings[e.AddedItems[0].ToString()]);
                 return;
             }
 
@@ -114,15 +119,19 @@ namespace HLXExport
             using CSVReader reader = new CSVReader(SELECTED_FILE);
 
             string[] fields = reader.FieldNames;
-            Debug.Notify("MainWindow: Selected Headers: " + fields.FlattenToString());
+            Debug.Notify("MainWindow: Previously Unknown File Loaded with " + fields.Count() + " headers in file @ " + SELECTED_FILE);
 
+            MinStatusBar.Value = 0;
             foreach (string field in fields)
             {
                 headerInclusionGridData.Add(new CSVTableHeaderData() {
                     SourceName = field.Trim('"'),
                     Include = false
                 });
+                MinStatusBar.Value += 5;
             }
+
+            MinStatusBar.Value = 0;
         }
 
         private void Button_LoadFromSource(object sender, RoutedEventArgs e)
@@ -152,11 +161,16 @@ namespace HLXExport
                     return;
                 }
 
+                if (File.Exists(".\\settings.json"))
+                {
+                    string jsonString = File.ReadAllText(".\\settings.json");
+                    fileSpecificExportSettings = JsonSerializer.Deserialize<Dictionary<string, CSVTableHeaderData[]>>(jsonString);
+                }
+
                 zip = ZippedFileCollection.Open(openFileDialog.FileName, ApplicationConstants.TEMP_DATA_PATH);
 
                 List<string> potentialFiles = new List<string>();
                 foreach (string filename in zip.GetFiles(".csv")) {
-                    Debug.Log("Found File in cluster: " + filename);
 
                     FileList.Items.Add(filename.Split('/','\\').Last());
 
@@ -215,7 +229,7 @@ namespace HLXExport
 
                         areas.Add(value);
                     }
-                    Trace.WriteLine("MainWindow: Attempting To Process File");
+                    Debug.Callout("Latched Collar File, found " + reader.RowCount + " holes");
                 }
 
             } else {
@@ -236,42 +250,60 @@ namespace HLXExport
 
         private void ExportDataToFile(string FilePath, bool OpenFileLocation)
         {
-            List<string> includedFields = new List<string>();
-            List<string> includedFieldNames = new List<string>();
-            foreach (CSVTableHeaderData row in headerInclusionGridData)
-            {
-                if (row.Include)
-                {
-                    includedFields.Add(row.SourceName);
+            IEnumerable<string> files = zip.Filter("*.csv");
 
-                    bool nameRemapped = string.IsNullOrEmpty(row.NameMapping);
-                    includedFieldNames.Add(nameRemapped ? row.SourceName : row.NameMapping);
-                }
-                    
-            }
-            
             DataProcessor.DoWorkWithModal(progress => {
 
-                using StreamWriter writer = new StreamWriter(FilePath);
-                using CSVReader reader = new CSVReader(SELECTED_FILE);
-
-                writer.WriteLine(includedFieldNames.FlattenToString());
-                while (reader.IsEOF == false)
+                foreach(string file in files)
                 {
-                    CSVRow row = reader.ReadRow();
-
-                    string[] values = new string[includedFields.Count];
-                    for (int i = 0; i < values.Length; i++)
+                    string fileName = Path.GetFileName(file);
+                    List<string> includedFields = new List<string>();
+                    List<string> includedFieldNames = new List<string>();
+                    CSVTableHeaderData[] csvHeaders;
+                    
+                    if (fileSpecificExportSettings.ContainsKey(fileName))
                     {
-                        values[i] = row.GetField('"' + includedFields[i] + '"');
-                    }
-                    if (SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"')))
+                        csvHeaders = fileSpecificExportSettings[fileName];
+                    } else
                     {
-                        writer.WriteLine(values.FlattenToString());
+                        return;
                     }
 
-                    progress.Report(reader.ReadPercentage * 100d);
+                    foreach (CSVTableHeaderData row in csvHeaders)
+                    {
+                        if (row.Include)
+                        {
+                            includedFields.Add(row.SourceName);
+
+                            bool nameRemapped = string.IsNullOrEmpty(row.NameMapping);
+                            includedFieldNames.Add(nameRemapped ? row.SourceName : row.NameMapping);
+                        }
+
+                    }
+
+                    
+                    using StreamWriter writer = new StreamWriter(FilePath + "\\" + fileName);
+                    using CSVReader reader = new CSVReader(file);
+
+                    writer.WriteLine(includedFieldNames.FlattenToString());
+                    while (reader.IsEOF == false)
+                    {
+                        CSVRow row = reader.ReadRow();
+
+                        string[] values = new string[includedFields.Count];
+                        for (int i = 0; i < values.Length; i++)
+                        {
+                            values[i] = row.GetField('"' + includedFields[i] + '"');
+                        }
+                        if (SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"')))
+                        {
+                            writer.WriteLine(values.FlattenToString());
+                        }
+
+                        progress.Report(reader.ReadPercentage * 100d);
+                    }
                 }
+                
 
                 string p = FilePath;
                 string args = string.Format("/e, /select, \"{0}\"", p);
@@ -309,10 +341,10 @@ namespace HLXExport
                 ExportDataToFile(exportLocation, openFileLocation);
                 
             }
-            SaveDataTable(SELECTED_FILE, headerInclusionGridData);
+            SaveDataTable(SELECTED_FILE.Split('/','\\').Last(), headerInclusionGridData);
             var options = new JsonSerializerOptions { WriteIndented = true };
             string jsonString = JsonSerializer.Serialize(fileSpecificExportSettings, options);
-            File.WriteAllText("C:\\Users\\angus\\Downloads\\settings.json", jsonString);
+            File.WriteAllText(".\\settings.json", jsonString);
         }
 
         private void Button_ShowCSVTools(object sender, RoutedEventArgs e)

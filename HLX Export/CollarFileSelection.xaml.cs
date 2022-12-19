@@ -46,7 +46,7 @@ namespace HLXExport {
         private void FileOptions_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             SelectedFile = e.AddedItems[0].ToString();
-            Debug.Log("CollarFileSelection:" + SelectedFile);
+            Debug.Status("Attempting to analyse collar file: " + SelectedFile);
         }
     }
 

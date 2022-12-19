@@ -16,6 +16,7 @@ namespace HLXExport
         public ConsoleLogLevel LogLevel;
         public string Message;
         public string ColorCode;
+        public string BgColorCode;
     }
 
     public static class Debug
@@ -57,6 +58,18 @@ namespace HLXExport
                 Message = "INFO: " + message,
                 LogLevel = ConsoleLogLevel.WARN,
                 ColorCode = "#faf219"
+            };
+            LogEvent?.Invoke(consoleLogData);
+        }
+
+        public static void Callout(string message)
+        {
+            ConsoleLogData consoleLogData = new()
+            {
+                Message = "INFO: " + message,
+                LogLevel = ConsoleLogLevel.INFO,
+                ColorCode = "#def5ff",
+                BgColorCode = "#00aaf2"
             };
             LogEvent?.Invoke(consoleLogData);
         }
@@ -123,6 +136,9 @@ namespace HLXExport
             } else {
                 // TODO: This is fucking horrific and needs fixing asap
                 line.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(data.ColorCode));
+
+                if (string.IsNullOrEmpty(data.BgColorCode) == false)
+                    line.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(data.BgColorCode));
             }
                 
 

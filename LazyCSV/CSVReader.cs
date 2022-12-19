@@ -10,6 +10,10 @@ namespace LazyCSV
 
         private readonly Dictionary<string, int> _columnHeaders;
 
+        private bool fileContainsHeaders;
+
+        public int RowCount { get; protected set; }
+
         public CSVReader(string path, bool fileContainsHeaders = true)
         {
             FileStreamOptions options = new FileStreamOptions()
@@ -24,12 +28,57 @@ namespace LazyCSV
 
             _columnHeaders = new Dictionary<string, int>();
 
+            RowCount = File.ReadLines(path).Count() - (fileContainsHeaders ? 1 : 0);
+
             if (fileContainsHeaders) {
                 var row = ReadRow();
                 for (int i = 0; i < row.Length; i++) {
                     _columnHeaders[row[i]] = i;
                 }
             }
+
+            this.fileContainsHeaders = fileContainsHeaders;
+        }
+        /// <summary>
+        /// This is a secondary constructor to the CSVReader Class. Using this constructor may lead to a degraded experience
+        /// with slower performance and less optimisation on read/write operations
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="fileContainsHeaders"></param>
+        public CSVReader(FileStream stream, bool fileContainsHeaders = true)
+        {
+            FileStreamOptions options = new FileStreamOptions()
+            {
+                Access = FileAccess.Read,
+                Mode = FileMode.Open,
+                Options = FileOptions.SequentialScan
+            };
+            _stream = stream;
+            _reader = new StreamReader(_stream);
+
+            _columnHeaders = new Dictionary<string, int>();
+
+            RowCount = 0;
+
+            while(string.IsNullOrEmpty(_reader.ReadLine()) == false)
+            {
+                RowCount++;
+            }
+
+            RowCount -= fileContainsHeaders ? 1 : 0;
+
+            Reset();
+
+            if (fileContainsHeaders)
+            {
+                var row = ReadRow();
+                for (int i = 0; i < row.Length; i++)
+                {
+                    _columnHeaders[row[i]] = i;
+                }
+            }
+
+            this.fileContainsHeaders = fileContainsHeaders;
         }
 
         public string[] FieldNames { get { return _columnHeaders.Keys.ToArray(); } }
@@ -66,7 +115,8 @@ namespace LazyCSV
 
         public void Reset() {
             _stream.Position = 0;
-            _reader.ReadLine();
+            if(fileContainsHeaders)
+                _reader.ReadLine();
         }
         public bool IsEOF { get { return _stream.Position == _stream.Length; } }
 

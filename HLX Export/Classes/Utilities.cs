@@ -55,11 +55,11 @@ namespace HLXExport
                 files.Add(Path.Combine(CollectionLocation,filePath));
             }
 
-            public IEnumerable<FileStream> Filter(string fileExtension)
+            public IEnumerable<string> Filter(string fileExtension)
             {
                 foreach (string file in files) {
                     if (file.EndsWith(fileExtension)) {
-                        yield return new FileStream(file, FileMode.Open);
+                        yield return file;
                     }
                 }
             }
