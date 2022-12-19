@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace HLXExport
 {
@@ -88,6 +89,17 @@ namespace HLXExport
             _instance = this;
 
             Debug.LogEvent += HandleConsoleEvent;
+
+            DispatcherTimer dispatcherTimer = new DispatcherTimer();
+            dispatcherTimer.Tick += DispatcherTimer_Tick;
+            dispatcherTimer.Interval = new TimeSpan(0, 0, 5);
+            dispatcherTimer.Start();
+        }
+
+        private void DispatcherTimer_Tick(object? sender, EventArgs e)
+        {
+            float memory = GC.GetTotalMemory(false);
+            this.Title = "Console Window | Memory Usage: " + (memory/1024f)/1024f;
         }
 
         protected void HandleConsoleEvent(ConsoleLogData data)

@@ -10,7 +10,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="helix-logo-padding.png" />
     <None Remove="info.png" />
+    <None Remove="static\helix-logo-padding.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -31,6 +33,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="helix-logo-padding.png" />
+    <Resource Include="static\helix-logo-padding.png" />
     <Resource Include="static\info.png" />
   </ItemGroup>
 

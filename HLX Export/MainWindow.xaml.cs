@@ -11,17 +11,18 @@ using LazyCSV;
 using System.Linq;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
+using Microsoft.VisualBasic.ApplicationServices;
 
 namespace HLXExport
 {
     // These values should all be constants and should be checked before every release version of the software
     public static class ApplicationConstants
     {
-        public const string SOFTWARE_VERSION = "v0.1.1a";
+        public const string SOFTWARE_VERSION = "v0.1.21a";
         public const string SOFTWARE_NAME = "HLX Export";
         public const string FORMATTED_TITLE = SOFTWARE_NAME + " " + SOFTWARE_VERSION;
-        public const string SOFTWARE_SUPPORT_LINK = "https://github.com/angusbarnes/HelixExportTool/issues";
+        public const string SOFTWARE_SUPPORT_LINK = "mailto:angusbrns@gmail.com";
         public const string TEMP_DATA_PATH = ".\\temp\\";
 #if DEBUG
         public const bool DEBUG_MODE_ENABLED = true;
@@ -40,9 +41,11 @@ namespace HLXExport
 
         private string SELECTED_FILE;
 
-        private ObservableCollection<HeaderData> headerData;
+        private ObservableCollection<CSVTableHeaderData> headerInclusionGridData;
+
+        private Dictionary<string, CSVTableHeaderData[]> fileSpecificExportSettings = new Dictionary<string, CSVTableHeaderData[]>();
         
-        public class HeaderData : INotifyPropertyChanged {
+        public class CSVTableHeaderData : INotifyPropertyChanged {
             public string SourceName { get; set; }
             public bool Include { get; set; }
 
@@ -66,12 +69,65 @@ namespace HLXExport
             if (Directory.Exists(ApplicationConstants.TEMP_DATA_PATH) == false)
                 Directory.CreateDirectory(ApplicationConstants.TEMP_DATA_PATH);
 
+            FileList.SelectionChanged += FileList_SelectionChanged;
+
+        }
+
+        private void SaveDataTable(string tableKey, IEnumerable<CSVTableHeaderData> tableHeaderSettings)
+        {
+            if (fileSpecificExportSettings.ContainsKey(tableKey))
+            {
+                fileSpecificExportSettings[tableKey] = tableHeaderSettings.ToArray();
+                return;
+            }
+
+            fileSpecificExportSettings.Add(tableKey, tableHeaderSettings.ToArray());
+        }
+
+        private void PopulateTable(IEnumerable<CSVTableHeaderData> tableData)
+        {
+            Debug.Log("MainWindow: Attempting To Populate DataGrid");
+            ObservableCollection<CSVTableHeaderData> list = new ObservableCollection<CSVTableHeaderData>();
+            tableData.ToList().ForEach(list.Add);
+            headerInclusionGridData = list;
+            MainGrid.DataContext = list;
+        }
+        private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.AddedItems.Count <= 0)
+                return;
+
+            if(headerInclusionGridData != null)
+                SaveDataTable(SELECTED_FILE, headerInclusionGridData);
+
+            SELECTED_FILE = zip.GetFilePath(e.AddedItems[0].ToString());
+
+            if (fileSpecificExportSettings.ContainsKey(zip.GetFilePath(e.AddedItems[0].ToString())))
+            {
+                PopulateTable(fileSpecificExportSettings[zip.GetFilePath(e.AddedItems[0].ToString())]);
+                return;
+            }
+
+            headerInclusionGridData = new ObservableCollection<CSVTableHeaderData>();
+            MainGrid.DataContext = headerInclusionGridData;
+
+            using CSVReader reader = new CSVReader(SELECTED_FILE);
+
+            string[] fields = reader.FieldNames;
+            Debug.Notify("MainWindow: Selected Headers: " + fields.FlattenToString());
+
+            foreach (string field in fields)
+            {
+                headerInclusionGridData.Add(new CSVTableHeaderData() {
+                    SourceName = field.Trim('"'),
+                    Include = false
+                });
+            }
         }
 
         private void Button_LoadFromSource(object sender, RoutedEventArgs e)
         {
             OpenFileDialog openFileDialog = new();
-            
 
             if (openFileDialog.ShowDialog() == true) {
 
@@ -88,11 +144,21 @@ namespace HLXExport
                 if (zip != null)
                     zip.DestroyCollection();
 
+                FileList.Items.Clear();
+
+                if(openFileDialog.FileName.EndsWith(".zip") == false)
+                {
+                    MessageBox.Show("Please Select a valid ZIP file", "Loading Error", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
                 zip = ZippedFileCollection.Open(openFileDialog.FileName, ApplicationConstants.TEMP_DATA_PATH);
 
                 List<string> potentialFiles = new List<string>();
                 foreach (string filename in zip.GetFiles(".csv")) {
                     Debug.Log("Found File in cluster: " + filename);
+
+                    FileList.Items.Add(filename.Split('/','\\').Last());
 
                     if (filename.Contains("header", StringComparison.OrdinalIgnoreCase) || filename.Contains("collar", StringComparison.OrdinalIgnoreCase)) {
                         potentialFiles.Add(filename);
@@ -119,21 +185,11 @@ namespace HLXExport
                         }
                     }
 
-                    headerData = new ObservableCollection<HeaderData>();
-                    MainGrid.DataContext = headerData;
+                    FileList.SelectedValue = SELECTED_FILE.Split('/', '\\').Last();
+
                     ProjectAreaList.Items.Clear();
 
                     using CSVReader reader = new CSVReader(SELECTED_FILE);
-
-                    string[] fields = reader.FieldNames;
-                    Debug.Notify("MainWindow: Selected Headers: " + fields.FlattenToString());
-
-                    foreach (string field in fields) {
-                        headerData.Add(new HeaderData() {
-                            SourceName = field.Trim('"'),
-                            Include = false
-                        });
-                    }
 
                     List<string> areas = new();
 
@@ -159,7 +215,6 @@ namespace HLXExport
 
                         areas.Add(value);
                     }
-
                     Trace.WriteLine("MainWindow: Attempting To Process File");
                 }
 
@@ -179,44 +234,85 @@ namespace HLXExport
             Debug.Status("Selected Projects Updated: " + SelectedProjects.FlattenToString());
         }
 
-        private void Button_SaveToDestination(object sender, RoutedEventArgs e)
+        private void ExportDataToFile(string FilePath, bool OpenFileLocation)
         {
-            VistaFolderBrowserDialog dialog = new();
-            if (dialog.ShowDialog() == true) {
-                DataDestinationLocationPath.Text = dialog.SelectedPath;
-                Debug.Log(" Selected an export path");
+            List<string> includedFields = new List<string>();
+            List<string> includedFieldNames = new List<string>();
+            foreach (CSVTableHeaderData row in headerInclusionGridData)
+            {
+                if (row.Include)
+                {
+                    includedFields.Add(row.SourceName);
 
-                string exportLocation = dialog.SelectedPath;
+                    bool nameRemapped = string.IsNullOrEmpty(row.NameMapping);
+                    includedFieldNames.Add(nameRemapped ? row.SourceName : row.NameMapping);
+                }
+                    
+            }
+            
+            DataProcessor.DoWorkWithModal(progress => {
 
-                List<string> includedFields = new List<string>();
-                foreach (HeaderData row in headerData) {
-                    if (row.Include)
-                        includedFields.Add(row.SourceName);
+                using StreamWriter writer = new StreamWriter(FilePath);
+                using CSVReader reader = new CSVReader(SELECTED_FILE);
+
+                writer.WriteLine(includedFieldNames.FlattenToString());
+                while (reader.IsEOF == false)
+                {
+                    CSVRow row = reader.ReadRow();
+
+                    string[] values = new string[includedFields.Count];
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        values[i] = row.GetField('"' + includedFields[i] + '"');
+                    }
+                    if (SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"')))
+                    {
+                        writer.WriteLine(values.FlattenToString());
+                    }
+
+                    progress.Report(reader.ReadPercentage * 100d);
                 }
 
-                DataProcessor.DoWorkWithModal(progress => {
+                string p = FilePath;
+                string args = string.Format("/e, /select, \"{0}\"", p);
 
-                    using StreamWriter writer = new StreamWriter(exportLocation + "\\TEST_EXPORT_CollarFile.csv");
-                    using CSVReader reader = new CSVReader(SELECTED_FILE);
-                    
-                    writer.WriteLine(includedFields.FlattenToString());
-                    while (reader.IsEOF == false) {
-                        CSVRow row = reader.ReadRow();
+                if (OpenFileLocation)
+                {
+                    ProcessStartInfo info = new();
+                    info.FileName = "explorer";
+                    info.Arguments = args;
+                    Process.Start(info);
+                }
+            });
+        }
 
-                        string[] values = new string[includedFields.Count];
-                        for (int i = 0; i < values.Length; i++) {
-                            values[i] = row.GetField('"' + includedFields[i] + '"');
-                        }
-                        if (SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"'))) {
-                            writer.WriteLine(values.FlattenToString());
-                        }
+        private void Button_SaveToDestination(object sender, RoutedEventArgs e)
+        {
+            // Configure save file dialog box
+            Microsoft.Win32.SaveFileDialog dialog = new Microsoft.Win32.SaveFileDialog();
+            dialog.FileName = "Exported_Collar"; // Default file name
+            dialog.DefaultExt = ".csv"; // Default file extension
+            dialog.Filter = "Comma Seperated Values |*.csv;*.txt;*tsv"; // Filter files by extension
 
-                        progress.Report(reader.ReadPercentage * 100d);
-                    }
-                });
+            // Show save file dialog box
+            bool? result = dialog.ShowDialog();
 
+            // Process save file dialog box results
+            if (result == true)
+            {
+                string exportLocation = dialog.FileName;
+                DataDestinationLocationPath.Text = exportLocation;
+                bool openFileLocation = (bool)OpenFileLocation.IsChecked;
+
+                Debug.Log(" Selected an export path: " + exportLocation);
+
+                ExportDataToFile(exportLocation, openFileLocation);
+                
             }
-
+            SaveDataTable(SELECTED_FILE, headerInclusionGridData);
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            string jsonString = JsonSerializer.Serialize(fileSpecificExportSettings, options);
+            File.WriteAllText("C:\\Users\\angus\\Downloads\\settings.json", jsonString);
         }
 
         private void Button_ShowCSVTools(object sender, RoutedEventArgs e)
@@ -243,6 +339,10 @@ namespace HLXExport
         }
 
         private void Button_ClearDataCache(object sender, RoutedEventArgs e) {
+
+            if (zip == null)
+                return;
+
             zip.DestroyCollection();
             zip = null;
             Directory.Delete(ApplicationConstants.TEMP_DATA_PATH, true);
@@ -252,7 +352,6 @@ namespace HLXExport
         // Simple Trace Listener
         public class MainWindowListener : TraceListener
         {
-
             public override void Write(string? message)
             {
                 Debug.Log(message);
