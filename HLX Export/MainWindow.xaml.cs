@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
-using Ookii.Dialogs.Wpf;
 using System.Diagnostics;
 using System;
 using static HLXExport.Utilities;
@@ -12,27 +11,9 @@ using System.Linq;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.Json;
-using Microsoft.VisualBasic.ApplicationServices;
-using System.Windows.Media.Animation;
 
 namespace HLXExport
 {
-    // These values should all be constants and should be checked before every release version of the software
-    public static class ApplicationConstants
-    {
-        public const string SOFTWARE_VERSION = "v0.1.21a";
-        public const string SOFTWARE_NAME = "HLX Export";
-        public const string FORMATTED_TITLE = SOFTWARE_NAME + " " + SOFTWARE_VERSION;
-        public const string SOFTWARE_SUPPORT_LINK = "mailto:angusbrns@gmail.com";
-        public const string TEMP_DATA_PATH = ".\\temp\\";
-#if DEBUG
-        public const bool DEBUG_MODE_ENABLED = true;
-#endif
-#if !DEBUG 
-        public const bool DEBUG_MODE_ENABLED = true;
-#endif
-    }
-
     public partial class MainWindow : Window
     {
         private ConsoleWindow consoleWindow = new();
@@ -53,10 +34,11 @@ namespace HLXExport
             public string NameMapping { get; set; }
 
             public string DesiredUnit { get; set; }
-            public bool HasUnits { get { return SourceName.Contains("ppm") || SourceName.Contains('%'); } }
+            public string DetectedUnit { get; set; }
+
+            public string BaseElementInfo { get; set; }
 
             public event PropertyChangedEventHandler? PropertyChanged;
-
         }
 
         public MainWindow() {
@@ -74,7 +56,6 @@ namespace HLXExport
                 Directory.CreateDirectory(ApplicationConstants.TEMP_DATA_PATH);
 
             FileList.SelectionChanged += FileList_SelectionChanged;
-
         }
 
         private void SaveDataTable(string tableKey, IEnumerable<CSVTableHeaderData> tableHeaderSettings)
@@ -96,20 +77,23 @@ namespace HLXExport
             headerInclusionGridData = list;
             MainGrid.DataContext = list;
         }
+
         private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (e.AddedItems.Count <= 0)
                 return;
 
             if(headerInclusionGridData != null)
-                SaveDataTable(SELECTED_FILE.Split('/','\\').Last(), headerInclusionGridData);
+                SaveDataTable(Path.GetFileName(SELECTED_FILE), headerInclusionGridData);
 
             SELECTED_FILE = zip.GetFilePath(e.AddedItems[0].ToString());
 
-            if (fileSpecificExportSettings.ContainsKey(e.AddedItems[0].ToString()))
+            string fileListSelection = e.AddedItems[0].ToString();
+
+            if (fileSpecificExportSettings.ContainsKey(fileListSelection))
             {
-                Debug.Status("MainWindow: Found File Specific Settings for file: " + e.AddedItems[0].ToString());
-                PopulateTable(fileSpecificExportSettings[e.AddedItems[0].ToString()]);
+                Debug.Status("MainWindow: Found File Specific Settings for file: " + fileListSelection);
+                PopulateTable(fileSpecificExportSettings[fileListSelection]);
                 return;
             }
 
@@ -119,15 +103,40 @@ namespace HLXExport
             using CSVReader reader = new CSVReader(SELECTED_FILE);
 
             string[] fields = reader.FieldNames;
-            Debug.Notify("MainWindow: Previously Unknown File Loaded with " + fields.Count() + " headers in file @ " + SELECTED_FILE);
+            Debug.Notify("MainWindow: Previously Unknown File Loaded with " + fields.Length + " headers in file @ " + SELECTED_FILE);
 
             MinStatusBar.Value = 0;
             foreach (string field in fields)
             {
-                headerInclusionGridData.Add(new CSVTableHeaderData() {
+                CSVTableHeaderData data = new CSVTableHeaderData()
+                {
                     SourceName = field.Trim('"'),
                     Include = false
-                });
+                };
+
+                var commonName = Elements.MatchCommonName(data.SourceName[..2]);
+                var sourceName = data.SourceName;
+                
+                if (commonName.IsMatch) {
+                    data.BaseElementInfo = commonName.CommonName;
+
+                    if (sourceName.Contains("ppm")) {
+                        data.DetectedUnit = "PPM";
+                    } 
+                    else if (sourceName.Contains("ppb")) {
+                        data.DetectedUnit = "PPB";
+                    } 
+                    else if (sourceName.Contains("%")) {
+                        data.DetectedUnit = "PERCENT";
+                    }
+
+                    data.BaseElementInfo = $"{commonName.CommonName}_{data.DetectedUnit}";
+                }
+
+                
+
+                headerInclusionGridData.Add(data);
+
                 MinStatusBar.Value += 5;
             }
 
@@ -172,7 +181,7 @@ namespace HLXExport
                 List<string> potentialFiles = new List<string>();
                 foreach (string filename in zip.GetFiles(".csv")) {
 
-                    FileList.Items.Add(filename.Split('/','\\').Last());
+                    FileList.Items.Add(Path.GetFileName(filename));
 
                     if (filename.Contains("header", StringComparison.OrdinalIgnoreCase) || filename.Contains("collar", StringComparison.OrdinalIgnoreCase)) {
                         potentialFiles.Add(filename);
@@ -199,7 +208,7 @@ namespace HLXExport
                         }
                     }
 
-                    FileList.SelectedValue = SELECTED_FILE.Split('/', '\\').Last();
+                    FileList.SelectedValue = Path.GetFileName(SELECTED_FILE);
 
                     ProjectAreaList.Items.Clear();
 
@@ -257,18 +266,16 @@ namespace HLXExport
                 foreach(string file in files)
                 {
                     string fileName = Path.GetFileName(file);
+
+                    if (fileSpecificExportSettings.ContainsKey(fileName) == false)
+                        return;
+
+                    
                     List<string> includedFields = new List<string>();
                     List<string> includedFieldNames = new List<string>();
-                    CSVTableHeaderData[] csvHeaders;
                     
-                    if (fileSpecificExportSettings.ContainsKey(fileName))
-                    {
-                        csvHeaders = fileSpecificExportSettings[fileName];
-                    } else
-                    {
-                        return;
-                    }
-
+                    CSVTableHeaderData[] csvHeaders = fileSpecificExportSettings[fileName];
+                    
                     foreach (CSVTableHeaderData row in csvHeaders)
                     {
                         if (row.Include)
@@ -278,23 +285,24 @@ namespace HLXExport
                             bool nameRemapped = string.IsNullOrEmpty(row.NameMapping);
                             includedFieldNames.Add(nameRemapped ? row.SourceName : row.NameMapping);
                         }
-
                     }
 
-                    
                     using StreamWriter writer = new StreamWriter(FilePath + "\\" + fileName);
                     using CSVReader reader = new CSVReader(file);
 
                     writer.WriteLine(includedFieldNames.FlattenToString());
+                    
                     while (reader.IsEOF == false)
                     {
                         CSVRow row = reader.ReadRow();
 
                         string[] values = new string[includedFields.Count];
+                        
                         for (int i = 0; i < values.Length; i++)
                         {
                             values[i] = row.GetField('"' + includedFields[i] + '"');
                         }
+                        
                         if (SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"')))
                         {
                             writer.WriteLine(values.FlattenToString());
@@ -304,7 +312,6 @@ namespace HLXExport
                     }
                 }
                 
-
                 string p = FilePath;
                 string args = string.Format("/e, /select, \"{0}\"", p);
 
@@ -321,11 +328,13 @@ namespace HLXExport
         private void Button_SaveToDestination(object sender, RoutedEventArgs e)
         {
             // Configure save file dialog box
-            Microsoft.Win32.SaveFileDialog dialog = new Microsoft.Win32.SaveFileDialog();
-            dialog.FileName = "Exported_Collar"; // Default file name
-            dialog.DefaultExt = ".csv"; // Default file extension
-            dialog.Filter = "Comma Seperated Values |*.csv;*.txt;*tsv"; // Filter files by extension
-
+            Microsoft.Win32.SaveFileDialog dialog = new Microsoft.Win32.SaveFileDialog()
+            {
+                FileName = "Exported_Collar",
+                DefaultExt = ".csv",
+                Filter = "Comma Seperated Values |*.csv;*.txt;*.tsv"
+            };
+         
             // Show save file dialog box
             bool? result = dialog.ShowDialog();
 
@@ -341,7 +350,8 @@ namespace HLXExport
                 ExportDataToFile(exportLocation, openFileLocation);
                 
             }
-            SaveDataTable(SELECTED_FILE.Split('/','\\').Last(), headerInclusionGridData);
+            SaveDataTable(Path.GetFileName(SELECTED_FILE), headerInclusionGridData);
+            
             var options = new JsonSerializerOptions { WriteIndented = true };
             string jsonString = JsonSerializer.Serialize(fileSpecificExportSettings, options);
             File.WriteAllText(".\\settings.json", jsonString);

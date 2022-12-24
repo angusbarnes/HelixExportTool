@@ -16,13 +16,20 @@ namespace HLXExport {
         public CollarFileSelection(List<string> files) {
             InitializeComponent();
 
-            MessageText.Text = $"Found {files.Count} potential header files. Please select one from the list or manually locate it.";
+            string message =  $"Found {files.Count} potential header files. Please select one from the list or manually locate it.";
+
+            if (files.Count == 0)
+                message = "Unable to identify any potential collar files. Manually select one using the locate button below";
+
+            MessageText.Text = message;
 
             FileOptions.SelectionMode = SelectionMode.Single;
 
             foreach (string file in files) {
                 FileOptions.Items.Add(file.Split('\\').Last());
             }
+
+            SelectButton.IsDefault = true;
         }
 
         public string? SelectedFile;
