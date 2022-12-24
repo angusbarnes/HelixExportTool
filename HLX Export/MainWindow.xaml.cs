@@ -259,17 +259,18 @@ namespace HLXExport
 
         private void ExportDataToFile(string FilePath, bool OpenFileLocation)
         {
-            IEnumerable<string> files = zip.Filter("*.csv");
+            IEnumerable<string> files = zip.Filter(".csv");
 
-            DataProcessor.DoWorkWithModal(progress => {
+            //DataProcessor.DoWorkWithModal(progress => {
 
                 foreach(string file in files)
                 {
+                    Debug.Log("MainWindow: Saving File: " + file);
                     string fileName = Path.GetFileName(file);
 
                     if (fileSpecificExportSettings.ContainsKey(fileName) == false)
-                        return;
-
+                        continue;
+                    Debug.Log("MainWindow: Found Export Settings for: " + file);
                     
                     List<string> includedFields = new List<string>();
                     List<string> includedFieldNames = new List<string>();
@@ -308,7 +309,7 @@ namespace HLXExport
                             writer.WriteLine(values.FlattenToString());
                         }
 
-                        progress.Report(reader.ReadPercentage * 100d);
+                        //progress.Report(reader.ReadPercentage * 100d);
                     }
                 }
                 
@@ -322,26 +323,29 @@ namespace HLXExport
                     info.Arguments = args;
                     Process.Start(info);
                 }
-            });
+            //});
         }
 
         private void Button_SaveToDestination(object sender, RoutedEventArgs e)
         {
             // Configure save file dialog box
-            Microsoft.Win32.SaveFileDialog dialog = new Microsoft.Win32.SaveFileDialog()
-            {
-                FileName = "Exported_Collar",
-                DefaultExt = ".csv",
-                Filter = "Comma Seperated Values |*.csv;*.txt;*.tsv"
-            };
-         
+            //Microsoft.Win32.SaveFileDialog dialog = new Microsoft.Win32.SaveFileDialog()
+            //{
+            //    FileName = "Exported_Collar",
+            //    DefaultExt = ".csv",
+            //    Filter = "Comma Seperated Values |*.csv;*.txt;*.tsv"
+            //};
+
+            Ookii.Dialogs.Wpf.VistaFolderBrowserDialog dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog();
+
             // Show save file dialog box
             bool? result = dialog.ShowDialog();
 
             // Process save file dialog box results
             if (result == true)
             {
-                string exportLocation = dialog.FileName;
+                //string exportLocation = dialog.FileName;
+                string exportLocation = dialog.SelectedPath;
                 DataDestinationLocationPath.Text = exportLocation;
                 bool openFileLocation = (bool)OpenFileLocation.IsChecked;
 
@@ -382,11 +386,11 @@ namespace HLXExport
 
         private void Button_ClearDataCache(object sender, RoutedEventArgs e) {
 
-            if (zip == null)
-                return;
-
-            zip.DestroyCollection();
-            zip = null;
+            if (zip != null) {
+                zip.DestroyCollection();
+                zip = null;
+            }
+ 
             Directory.Delete(ApplicationConstants.TEMP_DATA_PATH, true);
             Directory.CreateDirectory(ApplicationConstants.TEMP_DATA_PATH);
         }
