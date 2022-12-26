@@ -11,6 +11,7 @@ using System.Linq;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.Json;
+using System.Windows.Documents;
 
 namespace HLXExport
 {
@@ -23,7 +24,7 @@ namespace HLXExport
 
         private string SELECTED_FILE;
 
-        private ObservableCollection<CSVTableHeaderData> headerInclusionGridData;
+        private ObservableCollection<CSVTableHeaderData> temporaryGridData;
 
         private Dictionary<string, CSVTableHeaderData[]> fileSpecificExportSettings = new Dictionary<string, CSVTableHeaderData[]>();
         
@@ -74,7 +75,7 @@ namespace HLXExport
             Debug.Status("MainWindow: Attempting To Populate DataGrid");
             ObservableCollection<CSVTableHeaderData> list = new ObservableCollection<CSVTableHeaderData>();
             tableData.ToList().ForEach(list.Add);
-            headerInclusionGridData = list;
+            temporaryGridData = list;
             MainGrid.DataContext = list;
         }
 
@@ -83,8 +84,8 @@ namespace HLXExport
             if (e.AddedItems.Count <= 0)
                 return;
 
-            if(headerInclusionGridData != null)
-                SaveDataTable(Path.GetFileName(SELECTED_FILE), headerInclusionGridData);
+            if(temporaryGridData != null)
+                SaveDataTable(Path.GetFileName(SELECTED_FILE), temporaryGridData);
 
             SELECTED_FILE = zip.GetFilePath(e.AddedItems[0].ToString());
 
@@ -97,8 +98,8 @@ namespace HLXExport
                 return;
             }
 
-            headerInclusionGridData = new ObservableCollection<CSVTableHeaderData>();
-            MainGrid.DataContext = headerInclusionGridData;
+            temporaryGridData = new ObservableCollection<CSVTableHeaderData>();
+            MainGrid.DataContext = temporaryGridData;
 
             using CSVReader reader = new CSVReader(SELECTED_FILE);
 
@@ -133,9 +134,8 @@ namespace HLXExport
                     data.BaseElementInfo = $"{commonName.CommonName}_{data.DetectedUnit}";
                 }
 
-                
-
-                headerInclusionGridData.Add(data);
+      
+                temporaryGridData.Add(data);
 
                 MinStatusBar.Value += 5;
             }
@@ -218,8 +218,6 @@ namespace HLXExport
 
                     reader.Reset();
 
-                    Debug.Status("Collar ANALYSE ON");
-
                     if (!reader.FieldNames.Contains("\"ProjectArea\""))
                         return;
 
@@ -261,16 +259,14 @@ namespace HLXExport
         {
             IEnumerable<string> files = zip.Filter(".csv");
 
-            //DataProcessor.DoWorkWithModal(progress => {
+            DataProcessor.DoWorkWithModal(progress => {
 
                 foreach(string file in files)
                 {
-                    Debug.Log("MainWindow: Saving File: " + file);
                     string fileName = Path.GetFileName(file);
 
                     if (fileSpecificExportSettings.ContainsKey(fileName) == false)
                         continue;
-                    Debug.Log("MainWindow: Found Export Settings for: " + file);
                     
                     List<string> includedFields = new List<string>();
                     List<string> includedFieldNames = new List<string>();
@@ -309,7 +305,7 @@ namespace HLXExport
                             writer.WriteLine(values.FlattenToString());
                         }
 
-                        //progress.Report(reader.ReadPercentage * 100d);
+                        progress.Report(reader.ReadPercentage * 100d);
                     }
                 }
                 
@@ -323,7 +319,7 @@ namespace HLXExport
                     info.Arguments = args;
                     Process.Start(info);
                 }
-            //});
+            });
         }
 
         private void Button_SaveToDestination(object sender, RoutedEventArgs e)
@@ -354,7 +350,7 @@ namespace HLXExport
                 ExportDataToFile(exportLocation, openFileLocation);
                 
             }
-            SaveDataTable(Path.GetFileName(SELECTED_FILE), headerInclusionGridData);
+            SaveDataTable(Path.GetFileName(SELECTED_FILE), temporaryGridData);
             
             var options = new JsonSerializerOptions { WriteIndented = true };
             string jsonString = JsonSerializer.Serialize(fileSpecificExportSettings, options);
@@ -415,6 +411,13 @@ namespace HLXExport
                 zip.DestroyCollection();
             base.OnClosed(e);
             consoleWindow.Close();
+        }
+
+        private void Button_SelectAllProjects(object sender, RoutedEventArgs e)
+        {
+            foreach(CheckBox box in ProjectAreaList.Items) {
+                box.IsChecked = !box.IsChecked;
+            }
         }
     }
 }

@@ -38,6 +38,7 @@
                 </MenuItem>
             </Menu>
             <StackPanel></StackPanel>
+            <local:CustomGridRow></local:CustomGridRow>
         </DockPanel>
 
 
@@ -51,7 +52,7 @@
         <TreeView x:Name="ProjectAreaList" Grid.ColumnSpan="2" Margin="4,345,19,0" Height="195" VerticalAlignment="Top"/>
         <Label Content="Project List" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="2,318,0,0" VerticalAlignment="Top" Width="106" Height="26"/>
 
-        <DataGrid x:Name="MainGrid" Grid.Column="2" ItemsSource="{Binding}"  Margin="48,127,0,0" AutoGenerateColumns="False" HorizontalAlignment="Left" Width="544" Height="413" VerticalAlignment="Top" CanUserAddRows="False" CanUserDeleteRows="False">
+        <DataGrid x:Name="MainGrid" Grid.Column="2" ItemsSource="{Binding}"  Margin="27,127,0,0" AutoGenerateColumns="False" HorizontalAlignment="Left" Width="565" Height="413" VerticalAlignment="Top" CanUserAddRows="False" CanUserDeleteRows="False">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Source Name" Binding="{Binding SourceName}" IsReadOnly="True"></DataGridTextColumn>
                 <DataGridCheckBoxColumn Header="Include" Binding="{Binding Include, UpdateSourceTrigger=PropertyChanged}"></DataGridCheckBoxColumn>
@@ -63,17 +64,18 @@
         </DataGrid>
         <Label Content="Field Name Remapping" HorizontalAlignment="Left" Margin="48,101,0,0" VerticalAlignment="Top" Width="155" Height="26" Grid.Column="2"/>
         <CheckBox x:Name="OpenFileLocation" Grid.Column="2" Content="Open File Location On Export" HorizontalAlignment="Left" Margin="349,550,0,0" VerticalAlignment="Top" IsChecked="True" Height="15" Width="175"/>
-        <DatePicker HorizontalAlignment="Left" Margin="78,251,0,0" VerticalAlignment="Top" Width="174" Grid.Column="1" Grid.ColumnSpan="2" Height="24"/>
-        <DatePicker HorizontalAlignment="Left" Margin="78,285,0,0" VerticalAlignment="Top" Width="174" Grid.Column="1" Grid.ColumnSpan="2" Height="24"/>
+        <DatePicker Margin="78,251,19,0" VerticalAlignment="Top" Grid.Column="1" Height="24"/>
+        <DatePicker Margin="78,285,19,0" VerticalAlignment="Top" Grid.Column="1" Height="24"/>
         <Label Content="Start Date" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="0,249,0,0" VerticalAlignment="Top" Width="106" Height="26"/>
         <Label Content="End Date" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="0,279,0,0" VerticalAlignment="Top" Width="106" Height="26"/>
-        <ComboBox x:Name="FileList" Grid.ColumnSpan="3" HorizontalAlignment="Left" Margin="88,116,0,0" VerticalAlignment="Top" Width="164" Height="22"/>
+        <ComboBox x:Name="FileList" Grid.ColumnSpan="2" Margin="88,116,19,0" VerticalAlignment="Top" Height="22"/>
         <Label Content="Working File" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="0,113,0,0" VerticalAlignment="Top" Width="106" Height="26"/>
         <Image Grid.Column="2" HorizontalAlignment="Left" Height="109" Margin="421,-9,0,0" VerticalAlignment="Top" Width="128" Source="/helix-logo-padding.png"/>
         <StatusBar Grid.ColumnSpan="3" Margin="0,597,123,-36" Background="{x:Null}">
             <ProgressBar x:Name="MinStatusBar" HorizontalAlignment="Left" Height="18" VerticalAlignment="Top" Width="182" Background="#FFA29F9F"/>
             <Label x:Name="SoftInfo" Content="HLX Export by Angus Barnes - Helix Resources LTD 2022" HorizontalAlignment="Center" VerticalAlignment="Top" VerticalContentAlignment="Bottom" Foreground="#FF7D7D7D" Height="26" Width="306"/>
         </StatusBar>
+        <Button x:Name="SelectAllSitesBtn" Content="Select All" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="72,321,0,0" VerticalAlignment="Top" Width="72" Click="Button_SelectAllProjects"/>
 
     </Grid>
 </Window>
