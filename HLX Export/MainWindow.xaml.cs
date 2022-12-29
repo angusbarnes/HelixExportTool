@@ -12,6 +12,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Text.Json;
 using System.Windows.Documents;
+using System.Drawing;
 
 namespace HLXExport
 {
@@ -23,6 +24,8 @@ namespace HLXExport
         private ZippedFileCollection zip;
 
         private string SELECTED_FILE;
+        private string SETTINGS_FILE = ".\\settings.json";
+
 
         private ObservableCollection<CSVTableHeaderData> temporaryGridData;
 
@@ -37,7 +40,7 @@ namespace HLXExport
             public string DesiredUnit { get; set; }
             public string DetectedUnit { get; set; }
 
-            public string BaseElementInfo { get; set; }
+            public string SuggestedName { get; set; }
 
             public event PropertyChangedEventHandler? PropertyChanged;
         }
@@ -115,24 +118,49 @@ namespace HLXExport
                     Include = false
                 };
 
-                var commonName = Elements.MatchCommonName(data.SourceName[..2]);
-                var sourceName = data.SourceName;
-                
-                if (commonName.IsMatch) {
-                    data.BaseElementInfo = commonName.CommonName;
+                string ParseElementField(string[] tokens)
+                {
+                    string TwoLetterCode = tokens[0];
+                    string unit = tokens[1];
+                    if (Elements.MatchCommonName(TwoLetterCode))
+                    {
+                        unit = unit == "%" ? "per" : unit;
 
-                    if (sourceName.Contains("ppm")) {
-                        data.DetectedUnit = "PPM";
-                    } 
-                    else if (sourceName.Contains("ppb")) {
-                        data.DetectedUnit = "PPB";
-                    } 
-                    else if (sourceName.Contains("%")) {
-                        data.DetectedUnit = "PERCENT";
+                        return $"{TwoLetterCode}_{unit}";
                     }
 
-                    data.BaseElementInfo = $"{commonName.CommonName}_{data.DetectedUnit}";
+                    return "";
                 }
+
+                string[] tokens = data.SourceName.Split();
+                string assumedName = "";
+
+                if (tokens.Length == 2)
+                    assumedName = ParseElementField(tokens);
+
+                if (string.IsNullOrEmpty(assumedName) == false)
+                    data.SuggestedName = assumedName;
+
+                var commonName = Elements.MatchCommonName(data.SourceName[..2]);
+                var sourceName = data.SourceName;
+
+                if (data.SourceName == "ProjectArea")
+                    data.SuggestedName = "Project";
+                //if (commonName.IsMatch) {
+                //    data.BaseElementInfo = commonName.CommonName;
+
+                //    if (sourceName.Contains("ppm")) {
+                //        data.DetectedUnit = "ppm";
+                //    } 
+                //    else if (sourceName.Contains("ppb")) {
+                //        data.DetectedUnit = "ppb";
+                //    } 
+                //    else if (sourceName.Contains("%")) {
+                //        data.DetectedUnit = "per";
+                //    }
+
+                //    data.BaseElementInfo = $"{commonName.TwoLetterCode.Trim()}_{data.DetectedUnit}";
+                //}
 
       
                 temporaryGridData.Add(data);
@@ -170,10 +198,9 @@ namespace HLXExport
                     return;
                 }
 
-                if (File.Exists(".\\settings.json"))
+                if (File.Exists(Path.Combine(ApplicationConstants.DEFAULT_PROFILE_PATH, "DefaultProfile.json")))
                 {
-                    string jsonString = File.ReadAllText(".\\settings.json");
-                    fileSpecificExportSettings = JsonSerializer.Deserialize<Dictionary<string, CSVTableHeaderData[]>>(jsonString);
+                    SelectNewProfile(Path.Combine(ApplicationConstants.DEFAULT_PROFILE_PATH, "DefaultProfile.json"));
                 }
 
                 zip = ZippedFileCollection.Open(openFileDialog.FileName, ApplicationConstants.TEMP_DATA_PATH);
@@ -350,11 +377,17 @@ namespace HLXExport
                 ExportDataToFile(exportLocation, openFileLocation);
                 
             }
+
+            SaveProfileToFile(SETTINGS_FILE);
+        }
+
+        private void SaveProfileToFile(string SettingsFileName)
+        {
             SaveDataTable(Path.GetFileName(SELECTED_FILE), temporaryGridData);
-            
-            var options = new JsonSerializerOptions { WriteIndented = true };
+
+            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
             string jsonString = JsonSerializer.Serialize(fileSpecificExportSettings, options);
-            File.WriteAllText(".\\settings.json", jsonString);
+            File.WriteAllText(SettingsFileName, jsonString);
         }
 
         private void Button_ShowCSVTools(object sender, RoutedEventArgs e)
@@ -418,6 +451,50 @@ namespace HLXExport
             foreach(CheckBox box in ProjectAreaList.Items) {
                 box.IsChecked = !box.IsChecked;
             }
+        }
+
+        private void Button_LoadFromProfile(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog()
+            {
+                InitialDirectory = ApplicationConstants.DEFAULT_PROFILE_PATH
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                SelectNewProfile(dialog.FileName);
+            }
+        }
+
+        private void Button_SaveNewProfile(object sender, RoutedEventArgs e)
+        {
+            if (Directory.Exists(".\\profiles") == false)
+                Directory.CreateDirectory(".\\profiles");
+
+            SaveFileDialog dialog = new SaveFileDialog()
+            {
+                AddExtension = true,
+                DefaultExt = ".json",
+                CheckPathExists = true,
+                OverwritePrompt = true,
+                InitialDirectory = ApplicationConstants.DEFAULT_PROFILE_PATH
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                SaveProfileToFile(dialog.FileName);
+            }
+        }
+
+        private void SelectNewProfile(string ProfilePath)
+        {
+            if (File.Exists(ProfilePath) == false)
+                Debug.Error("Could not find the specified profile: " + ProfilePath);
+
+            string jsonString = File.ReadAllText(ProfilePath);
+            fileSpecificExportSettings = JsonSerializer.Deserialize<Dictionary<string, CSVTableHeaderData[]>>(jsonString);
+
+            CurrentProfileName.Content = Path.GetFileName(ProfilePath);
         }
     }
 }

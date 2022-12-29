@@ -18,11 +18,11 @@ namespace HLXExport
             { "Al", "ALUMINIUM" },
             { "As", "ARSENIC" },
             { "Bi", "BISMUTH" },
-            { "B ", "BORON" },
+            { "B", "BORON" },
             { "Ba", "BARIUM" },
             { "Ca", "CALCIUM" },
             { "Cd", "CADIUM" },
-            { "Li", "LITHIUM" }
+            { "Li", "LITHIUM" },
         };
 
         public static ElementMatchResult MatchCommonName(string twoLetterCode)
