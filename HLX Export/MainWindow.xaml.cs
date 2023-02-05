@@ -23,28 +23,13 @@ namespace HLXExport
 
         private ZippedFileCollection zip;
 
-        private string SELECTED_FILE;
+        private string CURRENT_SELECTED_FILE;
         private string SETTINGS_FILE = ".\\settings.json";
 
+        private ObservableCollection<RowDisplayData> temporaryGridData;
 
-        private ObservableCollection<CSVTableHeaderData> temporaryGridData;
-
-        private Dictionary<string, CSVTableHeaderData[]> fileSpecificExportSettings = new Dictionary<string, CSVTableHeaderData[]>();
+        private Dictionary<string, RowDisplayData[]> fileSpecificExportSettings = new Dictionary<string, RowDisplayData[]>();
         
-        public class CSVTableHeaderData : INotifyPropertyChanged {
-            public string SourceName { get; set; }
-            public bool Include { get; set; }
-
-            public string NameMapping { get; set; }
-
-            public string DesiredUnit { get; set; }
-            public string DetectedUnit { get; set; }
-
-            public string SuggestedName { get; set; }
-
-            public event PropertyChangedEventHandler? PropertyChanged;
-        }
-
         public MainWindow() {
             InitializeComponent();
 
@@ -60,63 +45,34 @@ namespace HLXExport
                 Directory.CreateDirectory(ApplicationConstants.TEMP_DATA_PATH);
 
             FileList.SelectionChanged += FileList_SelectionChanged;
+
+            MainGrid.CellEditEnding += MainGrid_CellEditEnding;
         }
 
-        private void SaveDataTable(string tableKey, IEnumerable<CSVTableHeaderData> tableHeaderSettings)
+        private bool CURRENT_FILE_IS_DIRTY = false;
+        private void MainGrid_CellEditEnding(object? sender, DataGridCellEditEndingEventArgs e)
         {
-            if (fileSpecificExportSettings.ContainsKey(tableKey))
-            {
-                fileSpecificExportSettings[tableKey] = tableHeaderSettings.ToArray();
-                return;
-            }
-
-            fileSpecificExportSettings.Add(tableKey, tableHeaderSettings.ToArray());
+            Debug.Status("Edited Row at index: " + e.Row.GetIndex());
+            CURRENT_FILE_IS_DIRTY = true;
         }
 
-        private void PopulateTable(IEnumerable<CSVTableHeaderData> tableData)
+        public Dictionary<string, DataModel> fileSettings = new Dictionary<string, DataModel>();
+        public ObservableCollection<RowDisplayData> GenerateGridFromSettings(string filename)
         {
-            Debug.Status("MainWindow: Attempting To Populate DataGrid");
-            ObservableCollection<CSVTableHeaderData> list = new ObservableCollection<CSVTableHeaderData>();
-            tableData.ToList().ForEach(list.Add);
-            temporaryGridData = list;
-            MainGrid.DataContext = list;
+            throw new System.NotImplementedException();
         }
 
-        private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        public ObservableCollection<RowDisplayData> GenerateGridFromFile(string filename, DataModel settings)
         {
-            if (e.AddedItems.Count <= 0)
-                return;
+            ObservableCollection<RowDisplayData> table = new ObservableCollection<RowDisplayData>();
 
-            if(temporaryGridData != null)
-                SaveDataTable(Path.GetFileName(SELECTED_FILE), temporaryGridData);
-
-            SELECTED_FILE = zip.GetFilePath(e.AddedItems[0].ToString());
-
-            string fileListSelection = e.AddedItems[0].ToString();
-
-            if (fileSpecificExportSettings.ContainsKey(fileListSelection))
-            {
-                Debug.Status("MainWindow: Found File Specific Settings for file: " + fileListSelection);
-                PopulateTable(fileSpecificExportSettings[fileListSelection]);
-                return;
-            }
-
-            temporaryGridData = new ObservableCollection<CSVTableHeaderData>();
-            MainGrid.DataContext = temporaryGridData;
-
-            using CSVReader reader = new CSVReader(SELECTED_FILE);
+            using CSVReader reader = new CSVReader(filename);
 
             string[] fields = reader.FieldNames;
-            Debug.Notify("MainWindow: Previously Unknown File Loaded with " + fields.Length + " headers in file @ " + SELECTED_FILE);
-
-            MinStatusBar.Value = 0;
             foreach (string field in fields)
             {
-                CSVTableHeaderData data = new CSVTableHeaderData()
-                {
-                    SourceName = field.Trim('"'),
-                    Include = false
-                };
+                string fieldname = field.Trim('"');
+                RowDisplayData data = settings.GetAsRowDisplay(fieldname);
 
                 string ParseElementField(string[] tokens)
                 {
@@ -132,7 +88,7 @@ namespace HLXExport
                     return "";
                 }
 
-                string[] tokens = data.SourceName.Split();
+                string[] tokens = data.FieldName.Split();
                 string assumedName = "";
 
                 if (tokens.Length == 2)
@@ -141,34 +97,32 @@ namespace HLXExport
                 if (string.IsNullOrEmpty(assumedName) == false)
                     data.SuggestedName = assumedName;
 
-                var commonName = Elements.MatchCommonName(data.SourceName[..2]);
-                var sourceName = data.SourceName;
+                data.IdentifiedElement = Elements.MatchCommonName(tokens[0]).CommonName;
+                var sourceName = data.FieldName;
 
-                if (data.SourceName == "ProjectArea")
-                    data.SuggestedName = "Project";
-                //if (commonName.IsMatch) {
-                //    data.BaseElementInfo = commonName.CommonName;
-
-                //    if (sourceName.Contains("ppm")) {
-                //        data.DetectedUnit = "ppm";
-                //    } 
-                //    else if (sourceName.Contains("ppb")) {
-                //        data.DetectedUnit = "ppb";
-                //    } 
-                //    else if (sourceName.Contains("%")) {
-                //        data.DetectedUnit = "per";
-                //    }
-
-                //    data.BaseElementInfo = $"{commonName.TwoLetterCode.Trim()}_{data.DetectedUnit}";
-                //}
-
-      
-                temporaryGridData.Add(data);
-
-                MinStatusBar.Value += 5;
+                table.Add(data);
             }
 
-            MinStatusBar.Value = 0;
+            return table;
+        }
+
+        public DataManager dataManager = new DataManager();
+        private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (e.AddedItems.Count <= 0)
+                return;
+
+            if (CURRENT_FILE_IS_DIRTY)
+            {
+                dataManager.UpdateDataModelFromDisplay(Path.GetFileName(CURRENT_SELECTED_FILE), temporaryGridData);
+                CURRENT_FILE_IS_DIRTY = false;
+            }
+
+            CURRENT_SELECTED_FILE = zip.GetFilePath(e.AddedItems[0].ToString());
+
+            DataModel model = dataManager.GetModel(e.AddedItems[0].ToString());
+            temporaryGridData = GenerateGridFromFile(CURRENT_SELECTED_FILE, model);
+            MainGrid.DataContext = temporaryGridData;
         }
 
         private void Button_LoadFromSource(object sender, RoutedEventArgs e)
@@ -220,7 +174,7 @@ namespace HLXExport
                 if (selectionWindow.ShowDialog() == true) {
 
                     if (selectionWindow.SelectionOutcome == CollarSelectionResult.SelectionMade) {
-                        SELECTED_FILE = zip.GetFilePath(selectionWindow.SelectedFile);
+                        CURRENT_SELECTED_FILE = zip.GetFilePath(selectionWindow.SelectedFile);
                     } else {
                         OpenFileDialog otherFileDialog = new();
                         otherFileDialog.Multiselect = false;
@@ -228,18 +182,18 @@ namespace HLXExport
                         Debug.Status("Using manual Selection Fallback @ " + Path.Join(Directory.GetCurrentDirectory(), zip.CollectionLocation));
 
                         if (otherFileDialog.ShowDialog() == true) {
-                            SELECTED_FILE = otherFileDialog.FileName;
+                            CURRENT_SELECTED_FILE = otherFileDialog.FileName;
                         }
                         else {
                             return;
                         }
                     }
 
-                    FileList.SelectedValue = Path.GetFileName(SELECTED_FILE);
+                    FileList.SelectedValue = Path.GetFileName(CURRENT_SELECTED_FILE);
 
                     ProjectAreaList.Items.Clear();
 
-                    using CSVReader reader = new CSVReader(SELECTED_FILE);
+                    using CSVReader reader = new CSVReader(CURRENT_SELECTED_FILE);
 
                     List<string> areas = new();
 
@@ -298,16 +252,16 @@ namespace HLXExport
                     List<string> includedFields = new List<string>();
                     List<string> includedFieldNames = new List<string>();
                     
-                    CSVTableHeaderData[] csvHeaders = fileSpecificExportSettings[fileName];
+                    RowDisplayData[] csvHeaders = fileSpecificExportSettings[fileName];
                     
-                    foreach (CSVTableHeaderData row in csvHeaders)
+                    foreach (RowDisplayData row in csvHeaders)
                     {
                         if (row.Include)
                         {
-                            includedFields.Add(row.SourceName);
+                            includedFields.Add(row.FieldName);
 
                             bool nameRemapped = string.IsNullOrEmpty(row.NameMapping);
-                            includedFieldNames.Add(nameRemapped ? row.SourceName : row.NameMapping);
+                            includedFieldNames.Add(nameRemapped ? row.FieldName : row.NameMapping);
                         }
                     }
 
@@ -351,14 +305,6 @@ namespace HLXExport
 
         private void Button_SaveToDestination(object sender, RoutedEventArgs e)
         {
-            // Configure save file dialog box
-            //Microsoft.Win32.SaveFileDialog dialog = new Microsoft.Win32.SaveFileDialog()
-            //{
-            //    FileName = "Exported_Collar",
-            //    DefaultExt = ".csv",
-            //    Filter = "Comma Seperated Values |*.csv;*.txt;*.tsv"
-            //};
-
             Ookii.Dialogs.Wpf.VistaFolderBrowserDialog dialog = new Ookii.Dialogs.Wpf.VistaFolderBrowserDialog();
 
             // Show save file dialog box
@@ -383,11 +329,7 @@ namespace HLXExport
 
         private void SaveProfileToFile(string SettingsFileName)
         {
-            SaveDataTable(Path.GetFileName(SELECTED_FILE), temporaryGridData);
-
-            var options = new JsonSerializerOptions { WriteIndented = true, DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
-            string jsonString = JsonSerializer.Serialize(fileSpecificExportSettings, options);
-            File.WriteAllText(SettingsFileName, jsonString);
+            dataManager.Save(SettingsFileName);
         }
 
         private void Button_ShowCSVTools(object sender, RoutedEventArgs e)
@@ -468,9 +410,17 @@ namespace HLXExport
 
         private void Button_SaveNewProfile(object sender, RoutedEventArgs e)
         {
+            MessageBox.Show("This Tool is in alpha development. Breaking changes may occur to saved export profiles.", "Notice", MessageBoxButton.OK, MessageBoxImage.Warning);
+
             if (Directory.Exists(".\\profiles") == false)
                 Directory.CreateDirectory(".\\profiles");
 
+            if (CURRENT_FILE_IS_DIRTY)
+            {
+                dataManager.UpdateDataModelFromDisplay(Path.GetFileName(CURRENT_SELECTED_FILE), temporaryGridData);
+                CURRENT_FILE_IS_DIRTY = false;
+            }
+                
             SaveFileDialog dialog = new SaveFileDialog()
             {
                 AddExtension = true,
@@ -491,10 +441,36 @@ namespace HLXExport
             if (File.Exists(ProfilePath) == false)
                 Debug.Error("Could not find the specified profile: " + ProfilePath);
 
-            string jsonString = File.ReadAllText(ProfilePath);
-            fileSpecificExportSettings = JsonSerializer.Deserialize<Dictionary<string, CSVTableHeaderData[]>>(jsonString);
+            dataManager.Load(ProfilePath);
+            temporaryGridData = GenerateGridFromFile(CURRENT_SELECTED_FILE, dataManager.GetModel(Path.GetFileName(CURRENT_SELECTED_FILE)));
+            MainGrid.DataContext = temporaryGridData;
 
             CurrentProfileName.Content = Path.GetFileName(ProfilePath);
+        }
+
+        private void Button_GenerateNameSuggestions(object sender, RoutedEventArgs e)
+        {
+            if (temporaryGridData == null)
+                return;
+
+            foreach(RowDisplayData row in temporaryGridData)
+            {
+                if (string.IsNullOrEmpty(row.SuggestedName) == false)
+                    row.NameMapping = row.SuggestedName;
+            }
+            MainGrid.Items.Refresh();
+            CURRENT_FILE_IS_DIRTY = true;
+            var result = MessageBox.Show("This is an experimental Feature. Please verify all generated names. Would you like to keep these changes?", "Name Generation", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            if (result == MessageBoxResult.No)
+            {
+                foreach (RowDisplayData row in temporaryGridData)
+                {
+                    if (string.IsNullOrEmpty(row.SuggestedName) == false)
+                        row.NameMapping = "";
+                }
+                MainGrid.Items.Refresh();
+            }
+
         }
     }
 }

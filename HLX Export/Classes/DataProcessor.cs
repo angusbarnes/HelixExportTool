@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Globalization;
-using CsvHelper; 
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Data;
@@ -38,33 +37,6 @@ namespace HLXExport
             if (RemovePrevious)
                 UnloadData();
 
-            DoWorkWithModal(progress => {
-                using (ZipArchive archive = new(new StreamReader(pathToDataFile).BaseStream)) {
-                    double count = archive.Entries.Count;
-                    for(int i = 0; i < count; i++) {
-                        ZipArchiveEntry entry = archive.Entries[i];
-                       
-                        if (entry.Name.EndsWith(".csv") == false)
-                            continue;
-
-                        FilesLoaded.Add(entry.Name);
-
-                        var stream = entry.Open();
-                        using var reader = new StreamReader(stream);
-                        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-
-                        using (var dr = new CsvDataReader(csv)) {
-                            var dt = new DataTable();
-                            dt.TableName = entry.Name;
-                            dt.Load(dr);
-
-                            CSVTables.Add(entry.Name, dt);
-                        }
-
-                        progress.Report((i / count) * 100d);
-                    }
-                }
-            });
         }
 
         public static void DoWorkWithModal(Action<IProgress<double>> work) {
