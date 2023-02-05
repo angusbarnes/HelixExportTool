@@ -209,10 +209,10 @@ namespace HLXExport
 
                         CheckBox checkBox = new()
                         {
-                            Content = value.Trim('"')
+                            Content = value.Trim('"'),
+                            IsChecked = true
                         };
 
-                        checkBox.Checked += UpdateHoleSelectionList;
                         ProjectAreaList.Items.Add(checkBox);
 
                         areas.Add(value);
@@ -226,69 +226,66 @@ namespace HLXExport
             }
         }
 
-        private List<string> SelectedProjects = new();
-        private void UpdateHoleSelectionList(object sender, RoutedEventArgs e) {
-            SelectedProjects.Clear();
-            foreach (CheckBox item in ProjectAreaList.Items) {
-                if ((bool)item.IsChecked)
-                    SelectedProjects.Add(item.Content.ToString());
-            }
-            Debug.Status("Selected Projects Updated: " + SelectedProjects.FlattenToString());
-        }
-
         private void ExportDataToFile(string FilePath, bool OpenFileLocation)
         {
             IEnumerable<string> files = zip.Filter(".csv");
 
-            DataProcessor.DoWorkWithModal(progress => {
+            List<string> SelectedProjects = new List<string>();
+            foreach (CheckBox item in ProjectAreaList.Items)
+            {
+                if ((bool)item.IsChecked)
+                    SelectedProjects.Add(item.Content.ToString());
+            }
 
-                foreach(string file in files)
+            //DataProcessor.DoWorkWithModal(progress => {
+
+            foreach (string file in files)
+            {
+                string fileName = Path.GetFileName(file);
+
+                DataModel data = dataManager.GetModel(fileName);
+
+                List<string> includedFieldNames = new List<string>();
+                List<string> includedFields = new List<string>();
+
+                foreach (KeyValuePair<string, FieldSettings> field in data.ExposeDictionary())
                 {
-                    string fileName = Path.GetFileName(file);
-
-                    if (fileSpecificExportSettings.ContainsKey(fileName) == false)
-                        continue;
-                    
-                    List<string> includedFields = new List<string>();
-                    List<string> includedFieldNames = new List<string>();
-                    
-                    RowDisplayData[] csvHeaders = fileSpecificExportSettings[fileName];
-                    
-                    foreach (RowDisplayData row in csvHeaders)
+                    if(field.Value.IncludeField)
                     {
-                        if (row.Include)
-                        {
-                            includedFields.Add(row.FieldName);
+                        includedFields.Add(field.Key);
 
-                            bool nameRemapped = string.IsNullOrEmpty(row.NameMapping);
-                            includedFieldNames.Add(nameRemapped ? row.FieldName : row.NameMapping);
-                        }
-                    }
+                        string name = field.Value.NameMapping;
+                        if (string.IsNullOrEmpty(name))
+                            name = field.Key;
 
-                    using StreamWriter writer = new StreamWriter(FilePath + "\\" + fileName);
-                    using CSVReader reader = new CSVReader(file);
-
-                    writer.WriteLine(includedFieldNames.FlattenToString());
-                    
-                    while (reader.IsEOF == false)
-                    {
-                        CSVRow row = reader.ReadRow();
-
-                        string[] values = new string[includedFields.Count];
-                        
-                        for (int i = 0; i < values.Length; i++)
-                        {
-                            values[i] = row.GetField('"' + includedFields[i] + '"');
-                        }
-                        
-                        if (SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"')))
-                        {
-                            writer.WriteLine(values.FlattenToString());
-                        }
-
-                        progress.Report(reader.ReadPercentage * 100d);
+                        includedFieldNames.Add(name);
                     }
                 }
+
+                using StreamWriter writer = new StreamWriter(FilePath + "\\" + fileName);
+                using CSVReader reader = new CSVReader(file);
+
+                writer.WriteLine(includedFieldNames.FlattenToString());
+                    
+                while (reader.IsEOF == false)
+                {
+                    CSVRow row = reader.ReadRow();
+
+                    string[] values = new string[includedFields.Count];
+                        
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        values[i] = row.GetField('"' + includedFields[i] + '"');
+                    }
+                        
+                    if ( row.ContainsField("\"ProjectArea\"") && SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"')))
+                    {
+                        writer.WriteLine(values.FlattenToString());
+                    }
+
+                    //progress.Report(reader.ReadPercentage * 100d);
+                }
+            }
                 
                 string p = FilePath;
                 string args = string.Format("/e, /select, \"{0}\"", p);
@@ -300,7 +297,7 @@ namespace HLXExport
                     info.Arguments = args;
                     Process.Start(info);
                 }
-            });
+            //});
         }
 
         private void Button_SaveToDestination(object sender, RoutedEventArgs e)

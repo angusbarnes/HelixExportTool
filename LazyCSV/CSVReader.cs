@@ -154,6 +154,11 @@ namespace LazyCSV
             return _row[_fieldnames[fieldname]];
         }
 
+        public bool ContainsField(string fieldname)
+        {
+            return _fieldnames.ContainsKey(fieldname);
+        }
+
         public string GetIndex(int index)
         {
             return _row[index];
