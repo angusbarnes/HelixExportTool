@@ -75,12 +75,13 @@ namespace HLXExport
 
                     zip.ExtractToDirectory(collection.CollectionLocation);
 
+                    Debug.Callout("Attempting to open ZIP Archive: " + Path.GetFileName(filename));
                     foreach (ZipArchiveEntry entry in zip.Entries) {
 
                         if (entry.FullName.EndsWith('/'))
                             continue;
 
-                        Debug.Log("OpenZipFile: found: " + entry.FullName);
+                        Debug.Log("------> " + entry.FullName);
                         collection.RegisterFile(entry.FullName);
                     }
 

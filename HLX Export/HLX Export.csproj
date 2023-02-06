@@ -6,7 +6,7 @@
     <RootNamespace>HLXExport</RootNamespace>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
-    <ApplicationIcon>static\HLX Export.ico</ApplicationIcon>
+    <ApplicationIcon>static\hlxport.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>

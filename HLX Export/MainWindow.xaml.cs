@@ -47,6 +47,19 @@ namespace HLXExport
             FileList.SelectionChanged += FileList_SelectionChanged;
 
             MainGrid.CellEditEnding += MainGrid_CellEditEnding;
+
+            int directoryCount = Directory.GetDirectories(ApplicationConstants.TEMP_DATA_PATH).Length;
+            if (directoryCount > 5)
+            {
+                var result = MessageBox.Show("Found many files in temporary data cache. " +
+                    "Would you like to remove these files? " +
+                    "This shouldn't have any performance impacts.", "Clear Data Cache?", 
+                    MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                    DestroyDataCache();
+
+            }
         }
 
         private bool CURRENT_FILE_IS_DIRTY = false;
@@ -112,15 +125,19 @@ namespace HLXExport
             if (e.AddedItems.Count <= 0)
                 return;
 
+            string chosenFile = e.AddedItems[0].ToString();
+
+            GenerateNameSuggestions.Visibility = chosenFile.Contains("sample", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Hidden;
+
             if (CURRENT_FILE_IS_DIRTY)
             {
                 dataManager.UpdateDataModelFromDisplay(Path.GetFileName(CURRENT_SELECTED_FILE), temporaryGridData);
                 CURRENT_FILE_IS_DIRTY = false;
             }
 
-            CURRENT_SELECTED_FILE = zip.GetFilePath(e.AddedItems[0].ToString());
+            CURRENT_SELECTED_FILE = zip.GetFilePath(chosenFile);
 
-            DataModel model = dataManager.GetModel(e.AddedItems[0].ToString());
+            DataModel model = dataManager.GetModel(chosenFile);
             temporaryGridData = GenerateGridFromFile(CURRENT_SELECTED_FILE, model);
             MainGrid.DataContext = temporaryGridData;
         }
@@ -217,6 +234,9 @@ namespace HLXExport
 
                         areas.Add(value);
                     }
+
+                    Debug.Notify($"Found {areas.Count} project areas: {areas.FlattenToString()}");
+
                     Debug.Callout("Latched Collar File, found " + reader.RowCount + " holes");
                 }
 
@@ -353,12 +373,17 @@ namespace HLXExport
         }
 
         private void Button_ClearDataCache(object sender, RoutedEventArgs e) {
+            DestroyDataCache();
+        }
 
-            if (zip != null) {
+        private void DestroyDataCache()
+        {
+            if (zip != null)
+            {
                 zip.DestroyCollection();
                 zip = null;
             }
- 
+
             Directory.Delete(ApplicationConstants.TEMP_DATA_PATH, true);
             Directory.CreateDirectory(ApplicationConstants.TEMP_DATA_PATH);
         }
