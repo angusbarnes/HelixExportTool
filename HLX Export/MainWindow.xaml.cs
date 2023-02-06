@@ -128,6 +128,7 @@ namespace HLXExport
             string chosenFile = e.AddedItems[0].ToString();
 
             GenerateNameSuggestions.Visibility = chosenFile.Contains("sample", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Hidden;
+            MainGrid.Columns.Last().Visibility = chosenFile.Contains("sample", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Hidden;
 
             if (CURRENT_FILE_IS_DIRTY)
             {

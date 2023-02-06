@@ -13,6 +13,7 @@
     <None Remove="helix-logo-padding.png" />
     <None Remove="info.png" />
     <None Remove="static\helix-logo-padding.png" />
+    <None Remove="static\splash.png" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +35,7 @@
 
   <ItemGroup>
     <Resource Include="helix-logo-padding.png" />
+    <SplashScreen Include="static\splash.png" />
     <Resource Include="static\helix-logo-padding.png" />
     <Resource Include="static\info.png" />
   </ItemGroup>
