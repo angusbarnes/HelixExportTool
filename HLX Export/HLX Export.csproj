@@ -6,7 +6,12 @@
     <RootNamespace>HLXExport</RootNamespace>
     <Nullable>enable</Nullable>
     <UseWPF>true</UseWPF>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishReadyToRun>true</PublishReadyToRun>
     <ApplicationIcon>static\hlxport.ico</ApplicationIcon>
+    <Authors>Angus Barnes</Authors>
+    <Company>Helix Resources LTD</Company>
   </PropertyGroup>
 
   <ItemGroup>

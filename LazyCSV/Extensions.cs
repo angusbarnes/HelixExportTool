@@ -8,12 +8,6 @@ namespace LazyCSV
         {
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.AppendJoin(',', array);
-            /*
-            foreach (T item in array) {
-                stringBuilder.Append(item.ToString());
-                stringBuilder.Append(", ");
-            }
-            */
 
             return stringBuilder.ToString();
         }
