@@ -36,6 +36,8 @@ namespace HLXExport
             Title = ApplicationConstants.FORMATTED_TITLE;
             Trace.Listeners.Add(mainWindowListener);
 
+            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+
             consoleWindow.WindowStartupLocation = WindowStartupLocation.Manual;
 
             if (ApplicationConstants.DEBUG_MODE_ENABLED)
@@ -60,6 +62,11 @@ namespace HLXExport
                     DestroyDataCache();
 
             }
+        }
+
+        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            File.WriteAllText("./crash-report.txt", e.ExceptionObject.ToString());
         }
 
         private bool CURRENT_FILE_IS_DIRTY = false;
@@ -170,11 +177,6 @@ namespace HLXExport
                     return;
                 }
 
-                if (File.Exists(Path.Combine(ApplicationConstants.DEFAULT_PROFILE_PATH, "DefaultProfile.json")))
-                {
-                    SelectNewProfile(Path.Combine(ApplicationConstants.DEFAULT_PROFILE_PATH, "DefaultProfile.json"));
-                }
-
                 zip = ZippedFileCollection.Open(openFileDialog.FileName, ApplicationConstants.TEMP_DATA_PATH);
 
                 List<string> potentialFiles = new List<string>();
@@ -258,67 +260,74 @@ namespace HLXExport
                     SelectedProjects.Add(item.Content.ToString());
             }
 
-            //DataProcessor.DoWorkWithModal(progress => {
+            DataProcessor.DoWorkWithModal(progress => {
 
-            foreach (string file in files)
-            {
-                string fileName = Path.GetFileName(file);
-
-                DataModel data = dataManager.GetModel(fileName);
-
-                List<string> includedFieldNames = new List<string>();
-                List<string> includedFields = new List<string>();
-
-                foreach (KeyValuePair<string, FieldSettings> field in data.ExposeDictionary())
+                foreach (string file in files)
                 {
-                    if(field.Value.IncludeField)
+                    string fileName = Path.GetFileName(file);
+
+                    if (dataManager.ContainsModel(fileName) == false)
+                        continue;
+
+                    DataModel data = dataManager.GetModel(fileName);
+
+                    List<string> includedFieldNames = new List<string>();
+                    List<string> includedFields = new List<string>();
+
+                    foreach (KeyValuePair<string, FieldSettings> field in data.ExposeDictionary())
                     {
-                        includedFields.Add(field.Key);
+                        if(field.Value.IncludeField)
+                        {
+                            includedFields.Add(field.Key);
 
-                        string name = field.Value.NameMapping;
-                        if (string.IsNullOrEmpty(name))
-                            name = field.Key;
+                            string name = field.Value.NameMapping;
+                            if (string.IsNullOrEmpty(name))
+                                name = field.Key;
 
-                        includedFieldNames.Add(name);
+                            includedFieldNames.Add(name);
+                        }
                     }
-                }
 
-                using StreamWriter writer = new StreamWriter(FilePath + "\\" + fileName);
-                using CSVReader reader = new CSVReader(file);
+                    using StreamWriter writer = new StreamWriter(FilePath + "\\" + fileName);
+                    using CSVReader reader = new CSVReader(file);
 
-                writer.WriteLine(includedFieldNames.FlattenToString());
+                    writer.WriteLine(includedFieldNames.FlattenToString());
                     
-                while (reader.IsEOF == false)
-                {
-                    CSVRow row = reader.ReadRow();
-
-                    string[] values = new string[includedFields.Count];
-                        
-                    for (int i = 0; i < values.Length; i++)
+                    while (reader.IsEOF == false)
                     {
-                        values[i] = row.GetField('"' + includedFields[i] + '"');
-                    }
-                        
-                    if ( row.ContainsField("\"ProjectArea\"") && SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"')))
-                    {
-                        writer.WriteLine(values.FlattenToString());
-                    }
+                        CSVRow row = reader.ReadRow();
 
-                    //progress.Report(reader.ReadPercentage * 100d);
+                        string[] values = new string[includedFields.Count];
+                        
+                        for (int i = 0; i < values.Length; i++)
+                        {
+                            values[i] = row.GetField('"' + includedFields[i] + '"');
+                        }
+                    
+                        // TODO: Deal with this logic dark pattern
+                        if ( row.ContainsField("\"ProjectArea\"") && SelectedProjects.Contains(row.GetField("\"ProjectArea\"").Trim('"')))
+                        {
+                            writer.WriteLine(values.FlattenToString());
+                        } else if (row.ContainsField("\"ProjectArea\"") == false)
+                        {
+                            writer.WriteLine(values.FlattenToString());
+                        }
+
+                        progress.Report(reader.ReadPercentage * 100d);
+                    }
                 }
-            }
                 
-                string p = FilePath;
-                string args = string.Format("/e, /select, \"{0}\"", p);
+                    string p = FilePath;
+                    string args = string.Format("/e, /select, \"{0}\"", p);
 
-                if (OpenFileLocation)
-                {
-                    ProcessStartInfo info = new();
-                    info.FileName = "explorer";
-                    info.Arguments = args;
-                    Process.Start(info);
-                }
-            //});
+                    if (OpenFileLocation)
+                    {
+                        ProcessStartInfo info = new();
+                        info.FileName = "explorer";
+                        info.Arguments = args;
+                        Process.Start(info);
+                    }
+            });
         }
 
         private void Button_SaveToDestination(object sender, RoutedEventArgs e)
@@ -335,6 +344,12 @@ namespace HLXExport
                 string exportLocation = dialog.SelectedPath;
                 DataDestinationLocationPath.Text = exportLocation;
                 bool openFileLocation = (bool)OpenFileLocation.IsChecked;
+
+                if (CURRENT_FILE_IS_DIRTY)
+                {
+                    dataManager.UpdateDataModelFromDisplay(Path.GetFileName(CURRENT_SELECTED_FILE), temporaryGridData);
+                    CURRENT_FILE_IS_DIRTY = false;
+                }
 
                 Debug.Log(" Selected an export path: " + exportLocation);
 

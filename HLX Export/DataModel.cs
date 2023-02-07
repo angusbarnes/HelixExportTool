@@ -28,6 +28,11 @@ namespace HLXExport
             return new DataModel();
         }
 
+        public bool ContainsModel(string filename)
+        {
+            return models.ContainsKey(filename);
+        }
+
         public void UpdateDataModelFromDisplay(string filename, IEnumerable<RowDisplayData> rows)
         {
             DataModel model = new DataModel();
@@ -52,13 +57,6 @@ namespace HLXExport
             string jsonString = File.ReadAllText(filename);
             models = JsonConvert.DeserializeObject<Dictionary<string, DataModel>>(jsonString);
             Debug.Log(models.FlattenToString());
-            foreach (DataModel model in models.Values)
-            {
-                foreach (FieldSettings item in model.ExposeDictionary().Values)
-                {
-                    Debug.Log(item.ToString());
-                }
-            }
         }
 
         public void Save(string filename) 

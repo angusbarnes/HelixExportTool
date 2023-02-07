@@ -41,7 +41,7 @@ namespace HLXExport
 
         public static void DoWorkWithModal(Action<IProgress<double>> work) {
             ProgressWindow progressDialogue = new ProgressWindow();
-            progressDialogue.JobDescription("Loading Data", "Importing Data Files");
+            progressDialogue.JobDescription("Exporting Data", "Generating Exported Files");
             progressDialogue.WindowStartupLocation = System.Windows.WindowStartupLocation.CenterScreen;
 
             progressDialogue.Loaded += (_, args) =>
