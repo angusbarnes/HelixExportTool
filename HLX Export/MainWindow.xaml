@@ -75,13 +75,13 @@
         <Label Content="Working File" Grid.ColumnSpan="2" Margin="0,102,99,0" VerticalAlignment="Top" Height="26"/>
         <Image Grid.Column="2" Margin="430,-9,26,500" Source="/helix-logo-padding.png" Width="190" Height="110"/>
         <StatusBar Grid.ColumnSpan="3" Margin="0,597,123,-36" Background="{x:Null}">
-            <Label x:Name="SoftInfo" Content="HLX Export by Angus Barnes - Helix Resources LTD 2022" HorizontalAlignment="Center" VerticalAlignment="Top" VerticalContentAlignment="Bottom" Foreground="#FF7D7D7D" Height="26" Width="306"/>
+            <Label x:Name="SoftInfo" Content="HLX Export by Angus Barnes" HorizontalAlignment="Center" VerticalAlignment="Top" VerticalContentAlignment="Bottom" Foreground="#FF7D7D7D" Height="26" Width="306"/>
         </StatusBar>
         <Button x:Name="SelectAllSitesBtn" Content="Select All" VerticalAlignment="Top" Click="Button_SelectAllProjects" Grid.Column="1" Height="20" Margin="102,176,31,0"/>
         <Label Content="Export Settings" Margin="0,72,50,0" VerticalAlignment="Top" Height="33" Grid.Column="1" FontWeight="Bold" FontSize="14"/>
         <Button Content="Load Profile" Grid.ColumnSpan="2" Height="24" Margin="0,407,37,0" VerticalAlignment="Top" Click="Button_LoadFromProfile" HorizontalAlignment="Right" Width="148"/>
         <Button Content="Save Profile" Grid.ColumnSpan="2" Height="24" Margin="0,439,37,0" VerticalAlignment="Top" Click="Button_SaveNewProfile" HorizontalAlignment="Right" Width="148"/>
-        <Label x:Name="CurrentProfileName" Content="" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="107,441,0,0" VerticalAlignment="Top"/>
+        <Label x:Name="CurrentProfileName" Content="" Grid.ColumnSpan="2" HorizontalAlignment="Left" Margin="116,381,0,0" VerticalAlignment="Top" Width="70"/>
         <Label Content="Current Profile:" Margin="16,381,0,0" VerticalAlignment="Top" Grid.Column="1" FontWeight="Bold" HorizontalAlignment="Left" Width="96"/>
         <Button x:Name="GenerateNameSuggestions" Visibility="Hidden" Grid.Column="2" Content="Generate Suggested Names" Margin="468,103,26,0" VerticalAlignment="Top" Click="Button_GenerateNameSuggestions"/>
     </Grid>

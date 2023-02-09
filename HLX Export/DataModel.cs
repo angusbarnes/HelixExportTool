@@ -76,6 +76,11 @@ namespace HLXExport
             string jsonString = JsonConvert.SerializeObject(models, serializerSettings);
             File.WriteAllText(filename, jsonString);
         }
+
+        public void Clear() 
+        {
+            models.Clear();
+        }
     }
 
     [Serializable]

@@ -13,6 +13,9 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Windows.Documents;
 using System.Drawing;
+using System.Windows.Markup;
+using System.Windows.Media;
+using Newtonsoft.Json;
 
 namespace HLXExport
 {
@@ -24,11 +27,8 @@ namespace HLXExport
         private ZippedFileCollection zip;
 
         private string CURRENT_SELECTED_FILE;
-        private string SETTINGS_FILE = ".\\settings.json";
 
         private ObservableCollection<RowDisplayData> temporaryGridData;
-
-        private Dictionary<string, RowDisplayData[]> fileSpecificExportSettings = new Dictionary<string, RowDisplayData[]>();
         
         public MainWindow() {
             InitializeComponent();
@@ -45,6 +45,14 @@ namespace HLXExport
 
             if (Directory.Exists(ApplicationConstants.TEMP_DATA_PATH) == false)
                 Directory.CreateDirectory(ApplicationConstants.TEMP_DATA_PATH);
+
+            if (File.Exists("./config/elements.json")) {
+                Elements.Load(JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText("./config/elements.json")));
+            }
+
+            if (File.Exists("./config/user_defined_compounds.json")) {
+                Elements.Load(JsonConvert.DeserializeObject<Dictionary<string, string>>(File.ReadAllText("./config/user_defined_compounds.json")));
+            }
 
             FileList.SelectionChanged += FileList_SelectionChanged;
 
@@ -134,8 +142,10 @@ namespace HLXExport
 
             string chosenFile = e.AddedItems[0].ToString();
 
-            GenerateNameSuggestions.Visibility = chosenFile.Contains("sample", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Hidden;
-            MainGrid.Columns.Last().Visibility = chosenFile.Contains("sample", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Hidden;
+            Visibility visiblity = chosenFile.Contains("sample", StringComparison.OrdinalIgnoreCase) ? Visibility.Visible : Visibility.Hidden;
+            
+            GenerateNameSuggestions.Visibility = visiblity;
+            MainGrid.Columns.Last().Visibility = visiblity;
 
             if (CURRENT_FILE_IS_DIRTY)
             {
@@ -168,6 +178,9 @@ namespace HLXExport
 
                 if (zip != null)
                     zip.DestroyCollection();
+
+                CurrentProfileName.Content = "";
+                dataManager.Clear();
 
                 FileList.Items.Clear();
 
@@ -227,11 +240,18 @@ namespace HLXExport
                             continue;
                         }
 
+
+                        string displayName = value.Trim('"') == "" ? "(UNCLASSIFIED)" : value.Trim('"');
                         CheckBox checkBox = new()
                         {
-                            Content = value.Trim('"'),
+                            Content = displayName,
                             IsChecked = true
                         };
+
+                        if (displayName == "(UNCLASSIFIED)") {
+                            checkBox.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 0, 0));
+                            checkBox.ToolTip = new ToolTip() { Content = "There was at least one field in the input data which does not contain a linked project area" };
+                        }
 
                         ProjectAreaList.Items.Add(checkBox);
 
@@ -317,16 +337,16 @@ namespace HLXExport
                     }
                 }
                 
-                    string p = FilePath;
-                    string args = string.Format("/e, /select, \"{0}\"", p);
+                string p = FilePath;
+                string args = string.Format("/e, /select, \"{0}\"", p);
 
-                    if (OpenFileLocation)
-                    {
-                        ProcessStartInfo info = new();
-                        info.FileName = "explorer";
-                        info.Arguments = args;
-                        Process.Start(info);
-                    }
+                if (OpenFileLocation)
+                {
+                    ProcessStartInfo info = new();
+                    info.FileName = "explorer";
+                    info.Arguments = args;
+                    Process.Start(info);
+                }
             });
         }
 
@@ -357,7 +377,6 @@ namespace HLXExport
                 
             }
 
-            SaveProfileToFile(SETTINGS_FILE);
         }
 
         private void SaveProfileToFile(string SettingsFileName)

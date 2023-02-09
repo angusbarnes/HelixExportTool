@@ -1,0 +1,10 @@
+- Fixed issue where developer console defaulted to open on release builds
+- Profile Name Now displays correctly
+- Removed the erroneous generation of a "settings.json" file
+- Fixed issue with persistent layer information when loading new data sources
+
+Changes:
+Highlighted unclassified fields
+
+Known Issues:
+- Unclassified fields cannot be exported

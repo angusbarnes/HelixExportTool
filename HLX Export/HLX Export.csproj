@@ -17,11 +17,15 @@
   <ItemGroup>
     <None Remove="helix-logo-padding.png" />
     <None Remove="info.png" />
+    <None Remove="static\config\elements.json" />
     <None Remove="static\helix-logo-padding.png" />
     <None Remove="static\splash.png" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="static\config\elements.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Content Include="static\HLX Export.ico" />
   </ItemGroup>
 
