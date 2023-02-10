@@ -16,7 +16,7 @@ namespace HLXExport
 
 
         public static void Load(Dictionary<string, string> dictToLoad) {
-            _elements.Append(dictToLoad.ToArray());
+            dictToLoad.ToList().ForEach(x => _elements.Add(x.Key, x.Value));
         }
 
         public static ElementMatchResult MatchCommonName(string twoLetterCode)
